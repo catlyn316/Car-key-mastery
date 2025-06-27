@@ -3,6 +3,8 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- GUI 主體
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
@@ -36,9 +38,9 @@ Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 15)
 -- 修正：標題樣式
 local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
-Title.Position = UDim2.new(0, 15, 0, 0)  -- 往上移動5像素原為5
+Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.1"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.2"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -152,76 +154,28 @@ local function createSectionButton(text, order, parent)
     local btn = Instance.new("TextButton", parent)
     btn.Size = UDim2.new(0, 120, 0, 45)
     btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(85, 85, 105)  -- 比原本更亮的背景
+    btn.BackgroundColor3 = Color3.fromRGB(85, 85, 105)
     
-    -- 最亮的文字設定
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 純白色
-    btn.TextTransparency = 0  -- 完全不透明
-    btn.Font = Enum.Font.GothamBold  -- 粗體字
-    btn.TextSize = 16  -- 適中大小
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextTransparency = 0
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
     btn.BorderSizePixel = 0
     
-    -- 移除漸層，使用純色背景
-    -- 這樣文字會更清楚
-    
-    -- 添加圓角
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
     
-    -- 簡化描邊
     local btnStroke = Instance.new("UIStroke", btn)
     btnStroke.Color = Color3.fromRGB(150, 180, 255)
     btnStroke.Thickness = 1
     btnStroke.Transparency = 0.6
     
-    -- 簡單hover效果
     btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(105, 105, 125)  -- hover時更亮
+        btn.BackgroundColor3 = Color3.fromRGB(105, 105, 125)
         btnStroke.Transparency = 0.3
     end)
     
     btn.MouseLeave:Connect(function()
         btn.BackgroundColor3 = Color3.fromRGB(85, 85, 105)
-        btnStroke.Transparency = 0.6
-    end)
-    
-    return btn
-end
-
--- 修正：簡單高亮文字的一般按鈕樣式
-local function createButton(text, order, parent, spacing)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0, 180, 0, 35)
-    btn.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)  -- 比原本更亮的背景
-    
-    -- 最亮的文字設定
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 純白色
-    btn.TextSize = 16  -- 適中大小
-    btn.Font = Enum.Font.GothamBold  -- 粗體字
-    btn.BorderSizePixel = 0
-    
-    -- 移除漸層，使用純色背景讓文字更清楚
-    
-    -- 添加圓角
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-    
-    -- 簡化描邊
-    local btnStroke = Instance.new("UIStroke", btn)
-    btnStroke.Color = Color3.fromRGB(120, 170, 255)
-    btnStroke.Thickness = 1
-    btnStroke.Transparency = 0.6
-    
-    -- 簡單hover效果
-    btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(100, 160, 240)  -- hover時更亮
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 保持純白
-        btnStroke.Transparency = 0.3
-    end)
-    
-    btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 保持純白
         btnStroke.Transparency = 0.6
     end)
     
@@ -244,7 +198,7 @@ local function styleScrollFrame(scrollFrame)
 end
 
 -- =================================
--- 新增功能：車鑰匙精通分區
+-- 新增功能：車鑰匙精通分區（觸控版）
 -- =================================
 
 -- 創建車鑰匙精通分區按鈕
@@ -257,57 +211,58 @@ CarMasteryContent.Position = UDim2.new(0, 5, 0, 5)
 CarMasteryContent.BackgroundTransparency = 1
 CarMasteryContent.BorderSizePixel = 0
 CarMasteryContent.ScrollBarThickness = 6
-CarMasteryContent.CanvasSize = UDim2.new(0, 0, 0, 200)
+CarMasteryContent.CanvasSize = UDim2.new(0, 0, 0, 300)
 CarMasteryContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
 CarMasteryContent.ScrollingDirection = Enum.ScrollingDirection.Y
-CarMasteryContent.Visible = true -- 預設顯示
+CarMasteryContent.Visible = true
 
 styleScrollFrame(CarMasteryContent)
 
--- 固定位置功能變數
-local isPositionLocked = false
-local lockedPosition = nil
-local positionLockConnection = nil
+-- 分區按鈕點擊事件
+CarMasterySection.MouseButton1Click:Connect(function()
+    for _, child in pairs(Content:GetChildren()) do
+        if child:IsA("ScrollingFrame") then
+            child.Visible = false
+        end
+    end
+    CarMasteryContent.Visible = true
+end)
 
--- 自動移動功能變數
+-- 虛擬按鍵移動功能變數
 local isAutoMoving = false
 local autoMoveConnection = nil
 local moveStartTime = 0
-local currentDirection = "backward" -- "backward" 或 "forward"
+local currentDirection = "W" -- "W", "A", "S", "D"
 
--- 修正按鈕創建函數，為ScrollingFrame調整位置計算
+-- 修正按鈕創建函數
 local function createScrollButton(text, order, parent, spacing)
     local btn = Instance.new("TextButton", parent)
     btn.Size = UDim2.new(0, 180, 0, 35)
     btn.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
     btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)  -- 比原本更亮的背景
+    btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
     
-    -- 最亮的文字設定
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 純白色
-    btn.TextSize = 16  -- 適中大小
-    btn.Font = Enum.Font.GothamBold  -- 粗體字
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 16
+    btn.Font = Enum.Font.GothamBold
     btn.BorderSizePixel = 0
     
-    -- 添加圓角
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
     
-    -- 簡化描邊
     local btnStroke = Instance.new("UIStroke", btn)
     btnStroke.Color = Color3.fromRGB(120, 170, 255)
     btnStroke.Thickness = 1
     btnStroke.Transparency = 0.6
     
-    -- 簡單hover效果
     btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(100, 160, 240)  -- hover時更亮
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 保持純白
+        btn.BackgroundColor3 = Color3.fromRGB(100, 160, 240)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btnStroke.Transparency = 0.3
     end)
     
     btn.MouseLeave:Connect(function()
         btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)  -- 保持純白
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btnStroke.Transparency = 0.6
     end)
     
@@ -317,20 +272,24 @@ end
 -- 創建固定位置按鈕
 local PositionLockButton = createScrollButton("固定位置（幫助者）", 1, CarMasteryContent, 50)
 
--- 創建自動移動按鈕
-local AutoMoveButton = createScrollButton("自動移動", 2, CarMasteryContent, 50)
+-- 創建虛擬按鍵移動按鈕
+local VirtualMoveButton = createScrollButton("虛擬按鍵移動", 2, CarMasteryContent, 50)
 
--- 分區按鈕點擊事件
-CarMasterySection.MouseButton1Click:Connect(function()
-    -- 隱藏所有其他內容區域（如果有的話）
-    for _, child in pairs(Content:GetChildren()) do
-        if child:IsA("ScrollingFrame") then
-            child.Visible = false
-        end
-    end
-    -- 顯示車鑰匙精通內容
-    CarMasteryContent.Visible = true
-end)
+-- 創建狀態顯示標籤
+local StatusLabel = Instance.new("TextLabel", CarMasteryContent)
+StatusLabel.Size = UDim2.new(0, 180, 0, 25)
+StatusLabel.Position = UDim2.new(0.5, -90, 0, 120)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "狀態：停止"
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 14
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+-- 固定位置功能變數
+local isPositionLocked = false
+local lockedPosition = nil
+local positionLockConnection = nil
 
 -- 固定位置功能
 PositionLockButton.MouseButton1Click:Connect(function()
@@ -370,87 +329,74 @@ PositionLockButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- 自動移動功能
-AutoMoveButton.MouseButton1Click:Connect(function()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Humanoid") then
-        return
-    end
-    
+-- 虛擬按鍵移動功能
+local function simulateKeyPress(key)
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+end
+
+local function simulateKeyRelease(key)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+-- 自動虛擬按鍵移動功能
+VirtualMoveButton.MouseButton1Click:Connect(function()
     if not isAutoMoving then
         -- 開始自動移動
         isAutoMoving = true
         moveStartTime = tick()
-        currentDirection = "backward"
-        AutoMoveButton.Text = "停止自動移動"
-        AutoMoveButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60) -- 紅色表示啟用
+        currentDirection = "W"
+        VirtualMoveButton.Text = "停止虛擬移動"
+        VirtualMoveButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        StatusLabel.Text = "狀態：自動移動中"
         
-        -- 自動移動循環 - 使用 BodyVelocity 直接控制角色移動
+        -- 開始按下第一個按鍵
+        simulateKeyPress(Enum.KeyCode[currentDirection])
+        
+        -- 自動移動循環
         autoMoveConnection = RunService.Heartbeat:Connect(function()
-            if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                return
-            end
-            
             local currentTime = tick()
             local elapsedTime = currentTime - moveStartTime
-            local rootPart = LocalPlayer.Character.HumanoidRootPart
-            local humanoid = LocalPlayer.Character.Humanoid
             
-            -- 每3秒切換方向
-            if elapsedTime >= 3 then
-                moveStartTime = currentTime
-                if currentDirection == "backward" then
-                    currentDirection = "forward"
+            -- 每2秒切換方向
+            if elapsedTime >= 2 then
+                -- 釋放當前按鍵
+                simulateKeyRelease(Enum.KeyCode[currentDirection])
+                
+                -- 切換到下一個方向
+                if currentDirection == "W" then
+                    currentDirection = "S"
+                elseif currentDirection == "S" then
+                    currentDirection = "A"
+                elseif currentDirection == "A" then
+                    currentDirection = "D"
                 else
-                    currentDirection = "backward"
+                    currentDirection = "W"
                 end
+                
+                -- 按下新的按鍵
+                simulateKeyPress(Enum.KeyCode[currentDirection])
+                
+                -- 重置計時器
+                moveStartTime = currentTime
+                StatusLabel.Text = "狀態：移動方向 " .. currentDirection
             end
-            
-            -- 創建或更新 BodyVelocity
-            local bodyVelocity = rootPart:FindFirstChild("AutoMoveVelocity")
-            if not bodyVelocity then
-                bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.Name = "AutoMoveVelocity"
-                bodyVelocity.MaxForce = Vector3.new(4000, 0, 4000) -- 只在 X 和 Z 軸施力
-                bodyVelocity.Parent = rootPart
-            end
-            
-            -- 計算移動方向和速度
-            local lookDirection = rootPart.CFrame.LookVector
-            local moveDirection
-            
-            if currentDirection == "backward" then
-                moveDirection = -lookDirection
-            else
-                moveDirection = lookDirection
-            end
-            
-            -- 設置速度（使用角色的行走速度）
-            local walkSpeed = humanoid.WalkSpeed or 16
-            bodyVelocity.Velocity = Vector3.new(moveDirection.X * walkSpeed, 0, moveDirection.Z * walkSpeed)
         end)
     else
         -- 停止自動移動
         isAutoMoving = false
-        AutoMoveButton.Text = "自動移動"
-        AutoMoveButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220) -- 恢復藍色
+        VirtualMoveButton.Text = "虛擬按鍵移動"
+        VirtualMoveButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
+        StatusLabel.Text = "狀態：停止"
         
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
             autoMoveConnection = nil
         end
         
-        -- 移除 BodyVelocity 以停止移動
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local rootPart = LocalPlayer.Character.HumanoidRootPart
-            local bodyVelocity = rootPart:FindFirstChild("AutoMoveVelocity")
-            if bodyVelocity then
-                bodyVelocity:Destroy()
-            end
-        end
+        -- 釋放當前按下的按鍵
+        simulateKeyRelease(Enum.KeyCode[currentDirection])
     end
 end)
-
-
 
 -- 當GUI被銷毀時清理連接
 ScreenGui.AncestryChanged:Connect(function()
@@ -460,6 +406,10 @@ ScreenGui.AncestryChanged:Connect(function()
         end
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
+        end
+        -- 確保釋放所有按鍵
+        for _, key in pairs({"W", "A", "S", "D"}) do
+            simulateKeyRelease(Enum.KeyCode[key])
         end
     end
 end)
