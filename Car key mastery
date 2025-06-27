@@ -38,7 +38,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)  -- 往上移動5像素原為5
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.1"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -376,9 +376,6 @@ AutoMoveButton.MouseButton1Click:Connect(function()
         return
     end
     
-    local humanoid = LocalPlayer.Character.Humanoid
-    local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
     if not isAutoMoving then
         -- 開始自動移動
         isAutoMoving = true
@@ -387,7 +384,7 @@ AutoMoveButton.MouseButton1Click:Connect(function()
         AutoMoveButton.Text = "停止自動移動"
         AutoMoveButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60) -- 紅色表示啟用
         
-        -- 自動移動循環 - 使用 BodyVelocity 方法以確保在所有平台上工作
+        -- 自動移動循環 - 使用 BodyVelocity 直接控制角色移動
         autoMoveConnection = RunService.Heartbeat:Connect(function()
             if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 return
@@ -396,6 +393,7 @@ AutoMoveButton.MouseButton1Click:Connect(function()
             local currentTime = tick()
             local elapsedTime = currentTime - moveStartTime
             local rootPart = LocalPlayer.Character.HumanoidRootPart
+            local humanoid = LocalPlayer.Character.Humanoid
             
             -- 每3秒切換方向
             if elapsedTime >= 3 then
@@ -407,7 +405,16 @@ AutoMoveButton.MouseButton1Click:Connect(function()
                 end
             end
             
-            -- 使用多種方法確保移動在平板上工作
+            -- 創建或更新 BodyVelocity
+            local bodyVelocity = rootPart:FindFirstChild("AutoMoveVelocity")
+            if not bodyVelocity then
+                bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Name = "AutoMoveVelocity"
+                bodyVelocity.MaxForce = Vector3.new(4000, 0, 4000) -- 只在 X 和 Z 軸施力
+                bodyVelocity.Parent = rootPart
+            end
+            
+            -- 計算移動方向和速度
             local lookDirection = rootPart.CFrame.LookVector
             local moveDirection
             
@@ -417,17 +424,9 @@ AutoMoveButton.MouseButton1Click:Connect(function()
                 moveDirection = lookDirection
             end
             
-            -- 方法1：直接設置 WalkDirection（適用於移動設備）
-            humanoid.WalkDirection = moveDirection * 16 -- 16是正常行走速度
-            
-            -- 方法2：使用 Move 方法作為備用
-            humanoid:Move(moveDirection, false)
-            
-            -- 方法3：如果上述都不行，直接移動角色位置（僅作為最後手段）
-            if humanoid.WalkSpeed > 0 then
-                local moveDistance = humanoid.WalkSpeed / 50 -- 每幀移動的距離
-                rootPart.CFrame = rootPart.CFrame + (moveDirection * moveDistance)
-            end
+            -- 設置速度（使用角色的行走速度）
+            local walkSpeed = humanoid.WalkSpeed or 16
+            bodyVelocity.Velocity = Vector3.new(moveDirection.X * walkSpeed, 0, moveDirection.Z * walkSpeed)
         end)
     else
         -- 停止自動移動
@@ -440,11 +439,13 @@ AutoMoveButton.MouseButton1Click:Connect(function()
             autoMoveConnection = nil
         end
         
-        -- 停止移動 - 清除所有移動相關設置
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            local humanoid = LocalPlayer.Character.Humanoid
-            humanoid.WalkDirection = Vector3.new(0, 0, 0)
-            humanoid:Move(Vector3.new(0, 0, 0), false)
+        -- 移除 BodyVelocity 以停止移動
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = LocalPlayer.Character.HumanoidRootPart
+            local bodyVelocity = rootPart:FindFirstChild("AutoMoveVelocity")
+            if bodyVelocity then
+                bodyVelocity:Destroy()
+            end
         end
     end
 end)
