@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.18"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.19"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -410,6 +410,7 @@ local HELPER_POSITION_INTERVAL = 3 -- 位置移動間隔：3秒
 local targetPlayerName = ""
 local helperMode = "normal" -- "normal" 或 "reset"
 local targetXZ = nil -- 存儲目標的X、Z坐標
+local helpModeLoop = nil -- 添加幫助模式循環變數
 
 -- 創建玩家名稱輸入框
 local PlayerNameInput = createTextBox("輸入玩家名稱", 1, CarMasteryContent, 45)
@@ -468,15 +469,15 @@ local function calculateTargetPosition(targetPlayer)
     local targetPosition = targetRootPart.Position
     local targetLookDirection = targetRootPart.CFrame.LookVector
     
-    -- 計算目標玩家面向方向前50單位的X、Z坐標
+    -- 計算目標玩家面向方向前5單位的X、Z坐標（改為5單位）
     local targetXZPosition = Vector3.new(
-        targetPosition.X + (targetLookDirection.X * 50),
+        targetPosition.X + (targetLookDirection.X * 5),
         0, -- Y坐標暫時設為0，後面會單獨處理
-        targetPosition.Z + (targetLookDirection.Z * 50)
+        targetPosition.Z + (targetLookDirection.Z * 5)
     )
     
-    -- 返回目標的Y坐標和XZ位置
-    return targetPosition.Y, targetXZPosition
+    -- 返回目標的Y坐標+2（高度偏移）和XZ位置
+    return targetPosition.Y + 2, targetXZPosition
 end
 
 -- 新版：移動到指定位置的函數（支持只更新高度或完整移動）
@@ -513,36 +514,6 @@ local function moveToPosition(targetY, targetXZ, onlyHeight)
     end)
     
     return true
-end
-
--- 重置角色的函數
-local function resetCharacter()
-    print("執行重置...")
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.Health = 0
-    end
-end
-
--- 傳送到 Lobby 的函數
-local function teleportToLobby()
-    wait(0.1) -- 等待角色重新載入
-    
-    -- 等待角色完全載入
-    repeat wait(0.1) until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    local lobbyTeleport = Workspace:FindFirstChild("Lobby")
-    if lobbyTeleport then
-        lobbyTeleport = lobbyTeleport:FindFirstChild("Teleport1")
-    end
-    
-    if lobbyTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        print("傳送到 Lobby...")
-        LocalPlayer.Character.HumanoidRootPart.CFrame = lobbyTeleport.CFrame
-        return true
-    else
-        print("找不到 Workspace.Lobby.Teleport1")
-        return false
-    end
 end
 
 -- 檢查 Ragdoll 狀態的函數
@@ -600,7 +571,7 @@ local function executeHelperMode()
     return nil
 end
 
--- 新版：幫助模式功能
+-- 新版：幫助模式功能（參考俠屏障精通的重置邏輯）
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
         -- 檢查是否有輸入玩家名稱
@@ -621,74 +592,142 @@ HelperModeButton.MouseButton1Click:Connect(function()
         HelperModeButton.Text = "停止幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         
-        -- 立即執行一次移動
-        local playerName, moveType = executeHelperMode()
-        if playerName then
-            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (" .. (moveType or "開始") .. ")"
-        else
-            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
-        end
-        
-        -- 創建幫助模式計時器（新版）
-        helperConnection = RunService.Heartbeat:Connect(function()
-            if not isHelperMode then
-                return
-            end
-            
-            local currentTime = tick()
-            local timePassed = currentTime - lastHelperMoveTime
-            
-            -- 每0.1秒執行一次（用於高度同步和位置檢查）
-            if timePassed >= HELPER_HEIGHT_INTERVAL then
-                lastHelperMoveTime = currentTime
+        -- 創建新的幫助模式循環
+        helpModeLoop = task.spawn(function()
+            while isHelperMode do
+                local character = LocalPlayer.Character
+                if not character then
+                    character = LocalPlayer.CharacterAdded:Wait()
+                end
                 
-                local playerName, moveType = executeHelperMode()
-                if playerName then
-                    if moveType == "完整移動" then
-                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (位置更新)"
-                    else
-                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (高度同步)"
+                local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 10)
+                local humanoid = character:WaitForChild("Humanoid", 10)
+                
+                if not humanoidRootPart or not humanoid then
+                    task.wait(0.5)
+                    continue
+                end
+                
+                if humanoid.Health <= 0 then
+                    task.wait(0.3)
+                    continue
+                end
+                
+                pcall(function()
+                    -- 傳送到 Lobby.Teleport1
+                    local teleport1 = Workspace.Lobby:FindFirstChild("Teleport1")
+                    if teleport1 and isHelperMode then
+                        humanoidRootPart.CFrame = teleport1.CFrame
+                        task.wait(0.3)
                     end
-                else
-                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
+                    
+                    -- 持續跟隨目標玩家
+                    local targetPlayer = findPlayerByName(targetPlayerName)
+                    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and isHelperMode then
+                        lastPositionUpdateTime = 0 -- 重置位置更新計時器
+                        
+                        -- 持續移動直到檢測到 ragdoll
+                        while isHelperMode and character.Parent and humanoid.Health > 0 do
+                            
+                            -- 檢查是否進入 ragdoll 狀態
+                            if isInRagdoll() then
+                                task.wait(0.5) -- 等待0.5秒
+                                
+                                if helperMode == "reset" then
+                                    -- 安全傳送到指定坐標
+                                    pcall(function()
+                                        if humanoidRootPart and humanoidRootPart.Parent then
+                                            humanoidRootPart.CFrame = CFrame.new(263, 13, 197)
+                                        end
+                                    end)
+                                    
+                                    task.wait(0.2)
+                                    
+                                    -- 安全重置
+                                    pcall(function()
+                                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                                            LocalPlayer.Character.Humanoid:TakeDamage(LocalPlayer.Character.Humanoid.MaxHealth)
+                                        end
+                                    end)
+                                    
+                                    -- 等待重置完成和新角色載入
+                                    local resetStartTime = tick()
+                                    repeat
+                                        task.wait(0.2)
+                                        if tick() - resetStartTime > 3 then
+                                            break
+                                        end
+                                    until not LocalPlayer.Character or LocalPlayer.Character.Humanoid.Health <= 0
+                                    
+                                    -- 等待新角色
+                                    local newCharacter = nil
+                                    local waitStartTime = tick()
+                                    repeat
+                                        task.wait(0.2)
+                                        newCharacter = LocalPlayer.Character
+                                        if tick() - waitStartTime > 3 then
+                                            break
+                                        end
+                                    until newCharacter and newCharacter:FindFirstChild("HumanoidRootPart") and 
+                                          newCharacter:FindFirstChild("Humanoid") and newCharacter.Humanoid.Health > 0
+                                    
+                                    -- 傳送到紅門並等待0.5秒
+                                    pcall(function()
+                                        local teleport1 = Workspace.Lobby:FindFirstChild("Teleport1")
+                                        if teleport1 and newCharacter and newCharacter:FindFirstChild("HumanoidRootPart") then
+                                            newCharacter.HumanoidRootPart.CFrame = teleport1.CFrame
+                                            task.wait(0.5) -- 確定碰到紅門0.5秒後才能移動
+                                        end
+                                    end)
+                                    
+                                    -- 移動到目標玩家面向方向5單位
+                                    pcall(function()
+                                        local targetPlayer = findPlayerByName(targetPlayerName)
+                                        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and 
+                                           newCharacter and newCharacter:FindFirstChild("HumanoidRootPart") then
+                                            local targetRoot = targetPlayer.Character.HumanoidRootPart
+                                            local targetLookDirection = targetRoot.CFrame.LookVector
+                                            local newPos = targetRoot.Position + (targetLookDirection * 50) + Vector3.new(0, 2, 0)
+                                            newCharacter.HumanoidRootPart.CFrame = CFrame.new(newPos, newPos + targetLookDirection)
+                                        end
+                                    end)
+                                    
+                                    task.wait(0.3)
+                                    break
+                                else
+                                    -- 不重置模式 - 繼續跟隨
+                                    break
+                                end
+                            end
+                            
+                            -- 每0.1秒執行一次位置更新
+                            local currentTime = tick()
+                            if currentTime - lastHelperMoveTime >= 0.1 then
+                                lastHelperMoveTime = currentTime
+                                
+                                local playerName, moveType = executeHelperMode()
+                                if playerName then
+                                    if moveType == "完整移動" then
+                                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (位置更新)"
+                                    else
+                                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (高度同步)"
+                                    end
+                                else
+                                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
+                                end
+                            end
+                            
+                            task.wait(0.05)
+                        end
+                    end
+                end)
+                
+                if isHelperMode then
+                    task.wait(1)
                 end
             end
         end)
         
-        -- 如果選擇了重置模式，監聽 ragdoll 狀態
-        if helperMode == "reset" then
-            ragdollConnection = RunService.Heartbeat:Connect(function()
-                if not isHelperMode then return end
-                
-                if isInRagdoll() then
-                    print("檢測到 Ragdoll 狀態，執行重置...")
-                    StatusLabel.Text = "狀態：檢測到撞擊，重置中..."
-                    
-                    -- 重置角色
-                    resetCharacter()
-                    
-                    -- 等待重生後傳送到 Lobby
-                    spawn(function()
-                        if teleportToLobby() then
-                            wait(0.5) -- 等待0.5秒
-                            
-                            -- 如果幫助模式仍然啟用，重置計時器並傳送到目標位置
-                            if isHelperMode then
-                                lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行完整移動
-                                targetXZ = nil
-                                local playerName, moveType = executeHelperMode()
-                                if playerName then
-                                    StatusLabel.Text = "狀態：重置完成，跟隨 " .. playerName
-                                    lastHelperMoveTime = tick() -- 重置計時器
-                                else
-                                    StatusLabel.Text = "狀態：重置完成，找不到目標"
-                                end
-                            end
-                        end
-                    end)
-                end
-            end)
-        end
     else
         -- 停止幫助模式
         print("停止幫助模式")
@@ -697,6 +736,12 @@ HelperModeButton.MouseButton1Click:Connect(function()
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
         StatusLabel.Text = "狀態：停止"
         targetXZ = nil
+        
+        -- 取消幫助模式循環
+        if helpModeLoop then
+            task.cancel(helpModeLoop)
+            helpModeLoop = nil
+        end
         
         -- 斷開連接
         if helperConnection then
@@ -796,6 +841,10 @@ ScreenGui.AncestryChanged:Connect(function()
         if ragdollConnection then
             ragdollConnection:Disconnect()
             ragdollConnection = nil
+        end
+        if helpModeLoop then
+            task.cancel(helpModeLoop)
+            helpModeLoop = nil
         end
         -- 清理虛擬移動連接
         if autoMoveConnection then
