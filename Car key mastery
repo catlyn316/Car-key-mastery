@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.13"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.14"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -211,7 +211,7 @@ CarMasteryContent.Position = UDim2.new(0, 5, 0, 5)
 CarMasteryContent.BackgroundTransparency = 1
 CarMasteryContent.BorderSizePixel = 0
 CarMasteryContent.ScrollBarThickness = 6
-CarMasteryContent.CanvasSize = UDim2.new(0, 0, 0, 300)
+CarMasteryContent.CanvasSize = UDim2.new(0, 0, 0, 500)
 CarMasteryContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
 CarMasteryContent.ScrollingDirection = Enum.ScrollingDirection.Y
 CarMasteryContent.Visible = true
@@ -239,8 +239,11 @@ local phaseStartTime = 0
 -- 幫助模式功能變數 (完全修復版)
 local isHelperMode = false
 local helperConnection = nil
+local ragdollConnection = nil
 local lastHelperMoveTime = 0
 local HELPER_INTERVAL = 6 -- 6秒間隔
+local targetPlayerName = ""
+local helperMode = "normal" -- "normal" 或 "reset"
 
 -- 修正按鈕創建函數
 local function createScrollButton(text, order, parent, spacing)
@@ -277,16 +280,144 @@ local function createScrollButton(text, order, parent, spacing)
     return btn
 end
 
+-- 創建輸入框的函數
+local function createTextBox(placeholder, order, parent, spacing)
+    local textBox = Instance.new("TextBox", parent)
+    textBox.Size = UDim2.new(0, 180, 0, 30)
+    textBox.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
+    textBox.PlaceholderText = placeholder
+    textBox.Text = ""
+    textBox.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 14
+    textBox.BorderSizePixel = 0
+    textBox.ClearTextOnFocus = false
+    
+    Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 6)
+    
+    local textBoxStroke = Instance.new("UIStroke", textBox)
+    textBoxStroke.Color = Color3.fromRGB(120, 170, 255)
+    textBoxStroke.Thickness = 1
+    textBoxStroke.Transparency = 0.7
+    
+    textBox.Focused:Connect(function()
+        textBoxStroke.Transparency = 0.3
+    end)
+    
+    textBox.FocusLost:Connect(function()
+        textBoxStroke.Transparency = 0.7
+    end)
+    
+    return textBox
+end
+
+-- 創建下拉選單的函數
+local function createDropdown(options, order, parent, spacing)
+    local dropdownFrame = Instance.new("Frame", parent)
+    dropdownFrame.Size = UDim2.new(0, 180, 0, 30)
+    dropdownFrame.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
+    dropdownFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    dropdownFrame.BorderSizePixel = 0
+    
+    Instance.new("UICorner", dropdownFrame).CornerRadius = UDim.new(0, 6)
+    
+    local dropdownStroke = Instance.new("UIStroke", dropdownFrame)
+    dropdownStroke.Color = Color3.fromRGB(120, 170, 255)
+    dropdownStroke.Thickness = 1
+    dropdownStroke.Transparency = 0.7
+    
+    local mainButton = Instance.new("TextButton", dropdownFrame)
+    mainButton.Size = UDim2.new(1, 0, 1, 0)
+    mainButton.BackgroundTransparency = 1
+    mainButton.Text = options[1]
+    mainButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    mainButton.Font = Enum.Font.Gotham
+    mainButton.TextSize = 14
+    
+    local arrow = Instance.new("TextLabel", dropdownFrame)
+    arrow.Size = UDim2.new(0, 20, 1, 0)
+    arrow.Position = UDim2.new(1, -20, 0, 0)
+    arrow.BackgroundTransparency = 1
+    arrow.Text = "▼"
+    arrow.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrow.Font = Enum.Font.Gotham
+    arrow.TextSize = 12
+    
+    local optionsFrame = Instance.new("Frame", dropdownFrame)
+    optionsFrame.Size = UDim2.new(1, 0, 0, #options * 30)
+    optionsFrame.Position = UDim2.new(0, 0, 1, 2)
+    optionsFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    optionsFrame.BorderSizePixel = 0
+    optionsFrame.Visible = false
+    optionsFrame.ZIndex = 10
+    
+    Instance.new("UICorner", optionsFrame).CornerRadius = UDim.new(0, 6)
+    
+    local optionsStroke = Instance.new("UIStroke", optionsFrame)
+    optionsStroke.Color = Color3.fromRGB(120, 170, 255)
+    optionsStroke.Thickness = 1
+    optionsStroke.Transparency = 0.7
+    
+    local selectedIndex = 1
+    local isOpen = false
+    
+    for i, option in ipairs(options) do
+        local optionButton = Instance.new("TextButton", optionsFrame)
+        optionButton.Size = UDim2.new(1, 0, 0, 30)
+        optionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
+        optionButton.BackgroundTransparency = 1
+        optionButton.Text = option
+        optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optionButton.Font = Enum.Font.Gotham
+        optionButton.TextSize = 14
+        optionButton.ZIndex = 11
+        
+        optionButton.MouseEnter:Connect(function()
+            optionButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+            optionButton.BackgroundTransparency = 0
+        end)
+        
+        optionButton.MouseLeave:Connect(function()
+            optionButton.BackgroundTransparency = 1
+        end)
+        
+        optionButton.MouseButton1Click:Connect(function()
+            selectedIndex = i
+            mainButton.Text = option
+            optionsFrame.Visible = false
+            isOpen = false
+            arrow.Text = "▼"
+        end)
+    end
+    
+    mainButton.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        optionsFrame.Visible = isOpen
+        arrow.Text = isOpen and "▲" or "▼"
+    end)
+    
+    -- 返回框架和獲取選中值的函數
+    return dropdownFrame, function() return selectedIndex, options[selectedIndex] end
+end
+
+-- 創建玩家名稱輸入框
+local PlayerNameInput = createTextBox("輸入玩家名稱", 1, CarMasteryContent, 45)
+
+-- 創建模式選擇下拉選單
+local ModeDropdown, getModeSelection = createDropdown({"被撞後不重置", "被撞後重置"}, 2, CarMasteryContent, 45)
+
 -- 創建幫助模式按鈕
-local HelperModeButton = createScrollButton("幫助模式（自動跟隨）", 1, CarMasteryContent, 50)
+local HelperModeButton = createScrollButton("開始幫助模式", 3, CarMasteryContent, 45)
 
 -- 創建虛擬按鍵移動按鈕
-local VirtualMoveButton = createScrollButton("虛擬按鍵移動", 2, CarMasteryContent, 50)
+local VirtualMoveButton = createScrollButton("虛擬按鍵移動", 4, CarMasteryContent, 45)
 
 -- 創建狀態顯示標籤
 local StatusLabel = Instance.new("TextLabel", CarMasteryContent)
 StatusLabel.Size = UDim2.new(0, 180, 0, 25)
-StatusLabel.Position = UDim2.new(0.5, -90, 0, 120)
+StatusLabel.Position = UDim2.new(0.5, -90, 0, 200)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "狀態：停止"
 StatusLabel.Font = Enum.Font.Gotham
@@ -294,27 +425,28 @@ StatusLabel.TextSize = 14
 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
 
--- 修復版：尋找最近玩家的函數
-local function findNearestPlayer()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+-- 修復版：尋找指定名稱玩家的函數
+local function findPlayerByName(playerName)
+    if not playerName or playerName == "" then
         return nil
     end
     
-    local myPosition = LocalPlayer.Character.HumanoidRootPart.Position
-    local nearestPlayer = nil
-    local shortestDistance = math.huge
-    
+    -- 完全匹配
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local distance = (player.Character.HumanoidRootPart.Position - myPosition).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                nearestPlayer = player
-            end
+        if player ~= LocalPlayer and player.Name == playerName then
+            return player
         end
     end
     
-    return nearestPlayer
+    -- 部分匹配（不區分大小寫）
+    local lowerName = playerName:lower()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Name:lower():find(lowerName) then
+            return player
+        end
+    end
+    
+    return nil
 end
 
 -- 修復版：計算目標位置的函數
@@ -362,32 +494,90 @@ local function moveToPosition(targetPosition)
     return true
 end
 
+-- 重置角色的函數
+local function resetCharacter()
+    print("執行重置...")
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.Health = 0
+    end
+end
+
+-- 傳送到 Lobby 的函數
+local function teleportToLobby()
+    wait(0.1) -- 等待角色重新載入
+    
+    -- 等待角色完全載入
+    repeat wait(0.1) until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    local lobbyTeleport = Workspace:FindFirstChild("Lobby")
+    if lobbyTeleport then
+        lobbyTeleport = lobbyTeleport:FindFirstChild("Teleport1")
+    end
+    
+    if lobbyTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        print("傳送到 Lobby...")
+        LocalPlayer.Character.HumanoidRootPart.CFrame = lobbyTeleport.CFrame
+        return true
+    else
+        print("找不到 Workspace.Lobby.Teleport1")
+        return false
+    end
+end
+
+-- 檢查 Ragdoll 狀態的函數
+local function isInRagdoll()
+    if not LocalPlayer.Character then return false end
+    
+    local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    
+    -- 檢查 PlatformStand（常見的 ragdoll 指標）
+    if humanoid.PlatformStand then return true end
+    
+    -- 檢查 Sit 狀態（某些遊戲用這個表示 ragdoll）
+    if humanoid.Sit then return true end
+    
+    -- 檢查 StateType 是否為 Physics（物理狀態）
+    if humanoid:GetState() == Enum.HumanoidStateType.Physics then return true end
+    
+    return false
+end
+
 -- 完全修復版：幫助模式主要執行函數
 local function executeHelperMode()
     if not isHelperMode then return false end
     
     print("執行幫助模式移動...")
-    local nearestPlayer = findNearestPlayer()
-    if nearestPlayer then
-        local targetPosition = calculateTargetPosition(nearestPlayer)
+    local targetPlayer = findPlayerByName(targetPlayerName)
+    if targetPlayer then
+        local targetPosition = calculateTargetPosition(targetPlayer)
         if targetPosition then
             if moveToPosition(targetPosition) then
-                print("成功傳送到", nearestPlayer.Name, "面前")
-                return nearestPlayer.Name
+                print("成功傳送到", targetPlayer.Name, "面前")
+                return targetPlayer.Name
             end
         end
     end
     
-    print("找不到其他玩家")
+    print("找不到目標玩家:", targetPlayerName)
     return nil
 end
 
 -- 完全修復版：幫助模式功能
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
+        -- 檢查是否有輸入玩家名稱
+        if PlayerNameInput.Text == "" then
+            StatusLabel.Text = "狀態：請輸入玩家名稱"
+            return
+        end
+        
         -- 開始幫助模式
         print("啟動幫助模式")
         isHelperMode = true
+        targetPlayerName = PlayerNameInput.Text
+        local _, selectedMode = getModeSelection()
+        helperMode = selectedMode == "被撞後重置" and "reset" or "normal"
         lastHelperMoveTime = tick()
         HelperModeButton.Text = "停止幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
@@ -397,7 +587,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
         if playerName then
             StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (6秒後下次)"
         else
-            StatusLabel.Text = "狀態：找不到其他玩家 (6秒後重試)"
+            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (6秒後重試)"
         end
         
         -- 創建幫助模式計時器（完全修復版）
@@ -419,7 +609,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
                         StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (" .. seconds .. "秒後下次)"
                     end
                 elseif StatusLabel.Text:find("找不到") then
-                    StatusLabel.Text = "狀態：找不到其他玩家 (" .. seconds .. "秒後重試)"
+                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (" .. seconds .. "秒後重試)"
                 end
             else
                 -- 時間到了，執行移動
@@ -430,15 +620,48 @@ HelperModeButton.MouseButton1Click:Connect(function()
                 if playerName then
                     StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (6秒後下次)"
                 else
-                    StatusLabel.Text = "狀態：找不到其他玩家 (6秒後重試)"
+                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (6秒後重試)"
                 end
             end
         end)
+        
+        -- 如果選擇了重置模式，監聽 ragdoll 狀態
+        if helperMode == "reset" then
+            ragdollConnection = RunService.Heartbeat:Connect(function()
+                if not isHelperMode then return end
+                
+                if isInRagdoll() then
+                    print("檢測到 Ragdoll 狀態，執行重置...")
+                    StatusLabel.Text = "狀態：檢測到撞擊，重置中..."
+                    
+                    -- 重置角色
+                    resetCharacter()
+                    
+                    -- 等待重生後傳送到 Lobby
+                    spawn(function()
+                        if teleportToLobby() then
+                            wait(0.5) -- 等待0.5秒
+                            
+                            -- 如果幫助模式仍然啟用，傳送到目標位置
+                            if isHelperMode then
+                                local playerName = executeHelperMode()
+                                if playerName then
+                                    StatusLabel.Text = "狀態：重置完成，跟隨 " .. playerName
+                                    lastHelperMoveTime = tick() -- 重置計時器
+                                else
+                                    StatusLabel.Text = "狀態：重置完成，找不到目標"
+                                end
+                            end
+                        end
+                    end)
+                end
+            end)
+        end
     else
         -- 停止幫助模式
         print("停止幫助模式")
         isHelperMode = false
-        HelperModeButton.Text = "幫助模式（自動跟隨）"
+        HelperModeButton.Text = "開始幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
         StatusLabel.Text = "狀態：停止"
         
@@ -446,6 +669,10 @@ HelperModeButton.MouseButton1Click:Connect(function()
         if helperConnection then
             helperConnection:Disconnect()
             helperConnection = nil
+        end
+        if ragdollConnection then
+            ragdollConnection:Disconnect()
+            ragdollConnection = nil
         end
     end
 end)
@@ -533,6 +760,10 @@ ScreenGui.AncestryChanged:Connect(function()
             helperConnection:Disconnect()
             helperConnection = nil
         end
+        if ragdollConnection then
+            ragdollConnection:Disconnect()
+            ragdollConnection = nil
+        end
         -- 清理虛擬移動連接
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
@@ -549,3 +780,4 @@ ScreenGui.AncestryChanged:Connect(function()
         isAutoMoving = false
     end
 end)
+  
