@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.14"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.15"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -240,10 +240,13 @@ local phaseStartTime = 0
 local isHelperMode = false
 local helperConnection = nil
 local ragdollConnection = nil
+local fallingConnection = nil
 local lastHelperMoveTime = 0
-local HELPER_INTERVAL = 6 -- 6秒間隔
+local HELPER_INTERVAL = 3 -- 3秒間隔
 local targetPlayerName = ""
 local helperMode = "normal" -- "normal" 或 "reset"
+local isFallingDetected = false
+local fallingStartTime = 0
 
 -- 修正按鈕創建函數
 local function createScrollButton(text, order, parent, spacing)
@@ -524,6 +527,19 @@ local function teleportToLobby()
     end
 end
 
+-- 檢查角色是否正在下墜的函數
+local function isFalling()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
+    local velocity = humanoidRootPart.Velocity
+    
+    -- 檢查垂直速度是否向下且速度足夠大（表示正在下墜）
+    return velocity.Y < -20 -- 如果Y軸速度小於-20，認為是在下墜
+end
+
 -- 檢查 Ragdoll 狀態的函數
 local function isInRagdoll()
     if not LocalPlayer.Character then return false end
@@ -541,6 +557,56 @@ local function isInRagdoll()
     if humanoid:GetState() == Enum.HumanoidStateType.Physics then return true end
     
     return false
+end
+
+-- 固定角色位置的函數
+local function anchorCharacter(targetPosition, duration)
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+    
+    local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
+    local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
+    
+    -- 創建固定位置
+    local newPosition = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z)
+    local newCFrame = CFrame.new(newPosition, newPosition + humanoidRootPart.CFrame.LookVector)
+    
+    -- 創建 BodyPosition 來固定角色
+    local bodyPosition = Instance.new("BodyPosition")
+    bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyPosition.Position = newPosition
+    bodyPosition.D = 3000 -- 阻尼
+    bodyPosition.P = 10000 -- 動力
+    bodyPosition.Parent = humanoidRootPart
+    
+    -- 創建 BodyAngularVelocity 來停止旋轉
+    local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+    bodyAngularVelocity.MaxTorque = Vector3.new(4000, 4000, 4000)
+    bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+    bodyAngularVelocity.Parent = humanoidRootPart
+    
+    -- 設定角色狀態
+    if humanoid then
+        humanoid.PlatformStand = true
+    end
+    
+    print("角色已固定在位置:", newPosition, "持續時間:", duration, "秒")
+    
+    -- 在指定時間後移除固定
+    spawn(function()
+        wait(duration)
+        if bodyPosition and bodyPosition.Parent then
+            bodyPosition:Destroy()
+        end
+        if bodyAngularVelocity and bodyAngularVelocity.Parent then
+            bodyAngularVelocity:Destroy()
+        end
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+        print("角色固定已解除")
+    end)
 end
 
 -- 完全修復版：幫助模式主要執行函數
@@ -585,9 +651,9 @@ HelperModeButton.MouseButton1Click:Connect(function()
         -- 立即執行一次移動
         local playerName = executeHelperMode()
         if playerName then
-            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (6秒後下次)"
+            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (3秒後下次)"
         else
-            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (6秒後重試)"
+            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (3秒後重試)"
         end
         
         -- 創建幫助模式計時器（完全修復版）
@@ -613,19 +679,19 @@ HelperModeButton.MouseButton1Click:Connect(function()
                 end
             else
                 -- 時間到了，執行移動
-                print("6秒到了，執行移動！當前時間:", currentTime, "上次時間:", lastHelperMoveTime, "間隔:", timePassed)
+                print("3秒到了，執行移動！當前時間:", currentTime, "上次時間:", lastHelperMoveTime, "間隔:", timePassed)
                 lastHelperMoveTime = currentTime
                 
                 local playerName = executeHelperMode()
                 if playerName then
-                    StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (6秒後下次)"
+                    StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (3秒後下次)"
                 else
-                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (6秒後重試)"
+                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (3秒後重試)"
                 end
             end
         end)
         
-        -- 如果選擇了重置模式，監聽 ragdoll 狀態
+        -- 如果選擇了重置模式，監聽 ragdoll 狀態和下墜狀態
         if helperMode == "reset" then
             ragdollConnection = RunService.Heartbeat:Connect(function()
                 if not isHelperMode then return end
@@ -656,6 +722,47 @@ HelperModeButton.MouseButton1Click:Connect(function()
                     end)
                 end
             end)
+            
+            -- 監聽下墜狀態
+            fallingConnection = RunService.Heartbeat:Connect(function()
+                if not isHelperMode then return end
+                
+                if isFalling() then
+                    if not isFallingDetected then
+                        -- 開始檢測到下墜
+                        isFallingDetected = true
+                        fallingStartTime = tick()
+                        print("檢測到下墜狀態，開始計時...")
+                        StatusLabel.Text = "狀態：檢測到下墜，等待3秒..."
+                    else
+                        -- 已經在下墜狀態，檢查是否達到3秒
+                        local fallingTime = tick() - fallingStartTime
+                        if fallingTime >= 3 then
+                            print("下墜已持續3秒，執行固定...")
+                            local targetPlayer = findPlayerByName(targetPlayerName)
+                            if targetPlayer then
+                                local targetPosition = calculateTargetPosition(targetPlayer)
+                                if targetPosition then
+                                    anchorCharacter(targetPosition, 0.5)
+                                    StatusLabel.Text = "狀態：已固定位置0.5秒"
+                                end
+                            end
+                            -- 重置下墜檢測
+                            isFallingDetected = false
+                        else
+                            -- 更新倒數顯示
+                            local remainingTime = 3 - fallingTime
+                            StatusLabel.Text = "狀態：下墜中，" .. math.ceil(remainingTime) .. "秒後固定"
+                        end
+                    end
+                else
+                    -- 沒有在下墜，重置檢測狀態
+                    if isFallingDetected then
+                        isFallingDetected = false
+                        print("下墜狀態結束")
+                    end
+                end
+            end)
         end
     else
         -- 停止幫助模式
@@ -674,6 +781,13 @@ HelperModeButton.MouseButton1Click:Connect(function()
             ragdollConnection:Disconnect()
             ragdollConnection = nil
         end
+        if fallingConnection then
+            fallingConnection:Disconnect()
+            fallingConnection = nil
+        end
+        
+        -- 重置下墜檢測狀態
+        isFallingDetected = false
     end
 end)
 
@@ -764,6 +878,10 @@ ScreenGui.AncestryChanged:Connect(function()
             ragdollConnection:Disconnect()
             ragdollConnection = nil
         end
+        if fallingConnection then
+            fallingConnection:Disconnect()
+            fallingConnection = nil
+        end
         -- 清理虛擬移動連接
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
@@ -778,6 +896,6 @@ ScreenGui.AncestryChanged:Connect(function()
         -- 重置所有狀態
         isHelperMode = false
         isAutoMoving = false
+        isFallingDetected = false
     end
 end)
-  
