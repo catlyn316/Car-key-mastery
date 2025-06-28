@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.11"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.13"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -236,10 +236,11 @@ local currentDirection = "W" -- "W"(前進), "S"(後退), "STOP"(停止)
 local movePhase = "moving" -- "moving"(移動中), "stopping"(停止中)
 local phaseStartTime = 0
 
--- 幫助模式功能變數
+-- 幫助模式功能變數 (完全修復版)
 local isHelperMode = false
 local helperConnection = nil
 local lastHelperMoveTime = 0
+local HELPER_INTERVAL = 6 -- 6秒間隔
 
 -- 修正按鈕創建函數
 local function createScrollButton(text, order, parent, spacing)
@@ -293,7 +294,7 @@ StatusLabel.TextSize = 14
 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
 
--- 尋找最近玩家的函數
+-- 修復版：尋找最近玩家的函數
 local function findNearestPlayer()
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return nil
@@ -316,7 +317,7 @@ local function findNearestPlayer()
     return nearestPlayer
 end
 
--- 計算目標位置的函數
+-- 修復版：計算目標位置的函數
 local function calculateTargetPosition(targetPlayer)
     if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return nil
@@ -327,79 +328,121 @@ local function calculateTargetPosition(targetPlayer)
     local targetLookDirection = targetRootPart.CFrame.LookVector
     
     -- 計算目標玩家面向方向前50單位的位置
-    local targetOffset = targetLookDirection * 50
-    local destinationPosition = targetPosition + targetOffset
+    local destinationPosition = targetPosition + (targetLookDirection * 50)
     
     return destinationPosition
 end
 
--- 移動到目標位置的函數
+-- 【關鍵修復】：移動到目標位置的函數 - 移除 AngularVelocity
 local function moveToPosition(targetPosition)
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return
+        return false
     end
     
     local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
-    
-    -- 平滑移動到目標位置，保持Y軸高度
     local currentPosition = humanoidRootPart.Position
     local newPosition = Vector3.new(targetPosition.X, currentPosition.Y, targetPosition.Z)
     
     -- 創建新的CFrame，保持當前的旋轉
     local newCFrame = CFrame.new(newPosition, newPosition + humanoidRootPart.CFrame.LookVector)
     
-    humanoidRootPart.CFrame = newCFrame
-    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-    humanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
+    -- 修復：使用 pcall 來安全設置屬性，避免 AngularVelocity 錯誤
+    pcall(function()
+        humanoidRootPart.CFrame = newCFrame
+        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        
+        -- 嘗試設置 AngularVelocity，如果不存在就跳過
+        if humanoidRootPart:FindFirstChild("AngularVelocity") then
+            humanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
+        elseif humanoidRootPart:FindFirstChild("BodyAngularVelocity") then
+            humanoidRootPart.BodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+    
+    return true
 end
 
--- 幫助模式功能
+-- 完全修復版：幫助模式主要執行函數
+local function executeHelperMode()
+    if not isHelperMode then return false end
+    
+    print("執行幫助模式移動...")
+    local nearestPlayer = findNearestPlayer()
+    if nearestPlayer then
+        local targetPosition = calculateTargetPosition(nearestPlayer)
+        if targetPosition then
+            if moveToPosition(targetPosition) then
+                print("成功傳送到", nearestPlayer.Name, "面前")
+                return nearestPlayer.Name
+            end
+        end
+    end
+    
+    print("找不到其他玩家")
+    return nil
+end
+
+-- 完全修復版：幫助模式功能
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
         -- 開始幫助模式
+        print("啟動幫助模式")
         isHelperMode = true
         lastHelperMoveTime = tick()
         HelperModeButton.Text = "停止幫助模式"
-        HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60) -- 紅色表示啟用
-        StatusLabel.Text = "狀態：幫助模式啟動"
+        HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         
         -- 立即執行一次移動
-        local nearestPlayer = findNearestPlayer()
-        if nearestPlayer then
-            local targetPosition = calculateTargetPosition(nearestPlayer)
-            if targetPosition then
-                moveToPosition(targetPosition)
-                StatusLabel.Text = "狀態：跟隨 " .. nearestPlayer.Name
-            end
+        local playerName = executeHelperMode()
+        if playerName then
+            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (6秒後下次)"
         else
-            StatusLabel.Text = "狀態：找不到其他玩家"
+            StatusLabel.Text = "狀態：找不到其他玩家 (6秒後重試)"
         end
         
-        -- 每6秒重複執行
+        -- 創建幫助模式計時器（完全修復版）
         helperConnection = RunService.Heartbeat:Connect(function()
+            if not isHelperMode then
+                return
+            end
+            
             local currentTime = tick()
-            if currentTime - lastHelperMoveTime >= 6 then
+            local timePassed = currentTime - lastHelperMoveTime
+            local remainingTime = math.max(0, HELPER_INTERVAL - timePassed)
+            
+            -- 更新倒數顯示
+            if remainingTime > 0 then
+                local seconds = math.ceil(remainingTime)
+                if StatusLabel.Text:find("跟隨") then
+                    local playerName = StatusLabel.Text:match("跟隨 ([^%s]+)")
+                    if playerName then
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (" .. seconds .. "秒後下次)"
+                    end
+                elseif StatusLabel.Text:find("找不到") then
+                    StatusLabel.Text = "狀態：找不到其他玩家 (" .. seconds .. "秒後重試)"
+                end
+            else
+                -- 時間到了，執行移動
+                print("6秒到了，執行移動！當前時間:", currentTime, "上次時間:", lastHelperMoveTime, "間隔:", timePassed)
                 lastHelperMoveTime = currentTime
                 
-                local nearestPlayer = findNearestPlayer()
-                if nearestPlayer then
-                    local targetPosition = calculateTargetPosition(nearestPlayer)
-                    if targetPosition then
-                        moveToPosition(targetPosition)
-                        StatusLabel.Text = "狀態：跟隨 " .. nearestPlayer.Name
-                    end
+                local playerName = executeHelperMode()
+                if playerName then
+                    StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (6秒後下次)"
                 else
-                    StatusLabel.Text = "狀態：找不到其他玩家"
+                    StatusLabel.Text = "狀態：找不到其他玩家 (6秒後重試)"
                 end
             end
         end)
     else
         -- 停止幫助模式
+        print("停止幫助模式")
         isHelperMode = false
         HelperModeButton.Text = "幫助模式（自動跟隨）"
-        HelperModeButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220) -- 恢復藍色
+        HelperModeButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
         StatusLabel.Text = "狀態：停止"
         
+        -- 斷開連接
         if helperConnection then
             helperConnection:Disconnect()
             helperConnection = nil
@@ -482,18 +525,27 @@ VirtualMoveButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- 當GUI被銷毀時清理連接
+-- 當GUI被銷毀時清理所有連接
 ScreenGui.AncestryChanged:Connect(function()
     if not ScreenGui.Parent then
+        -- 清理幫助模式連接
         if helperConnection then
             helperConnection:Disconnect()
+            helperConnection = nil
         end
+        -- 清理虛擬移動連接
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
+            autoMoveConnection = nil
         end
         -- 確保釋放所有按鍵
         for _, key in pairs({"W", "S"}) do
-            simulateKeyRelease(Enum.KeyCode[key])
+            pcall(function()
+                simulateKeyRelease(Enum.KeyCode[key])
+            end)
         end
+        -- 重置所有狀態
+        isHelperMode = false
+        isAutoMoving = false
     end
 end)
