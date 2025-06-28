@@ -198,7 +198,7 @@ local function styleScrollFrame(scrollFrame)
 end
 
 -- =================================
--- 新增功能：車鑰匙精通分區（觸控版）
+-- 修改版：車鑰匙精通分區（觸控版）
 -- =================================
 
 -- 創建車鑰匙精通分區按鈕
@@ -236,174 +236,14 @@ local currentDirection = "W" -- "W"(前進), "S"(後退), "STOP"(停止)
 local movePhase = "moving" -- "moving"(移動中), "stopping"(停止中)
 local phaseStartTime = 0
 
--- 幫助模式功能變數 (完全修復版)
+-- 幫助模式功能變數 (修改版)
 local isHelperMode = false
 local helperConnection = nil
 local ragdollConnection = nil
-local fallingConnection = nil
 local lastHelperMoveTime = 0
-local HELPER_INTERVAL = 3 -- 3秒間隔
+local HELPER_INTERVAL = 0.1 -- 修改為0.1秒間隔
 local targetPlayerName = ""
 local helperMode = "normal" -- "normal" 或 "reset"
-local isFallingDetected = false
-local fallingStartTime = 0
-
--- 修正按鈕創建函數
-local function createScrollButton(text, order, parent, spacing)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0, 180, 0, 35)
-    btn.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
-    
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 16
-    btn.Font = Enum.Font.GothamBold
-    btn.BorderSizePixel = 0
-    
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-    
-    local btnStroke = Instance.new("UIStroke", btn)
-    btnStroke.Color = Color3.fromRGB(120, 170, 255)
-    btnStroke.Thickness = 1
-    btnStroke.Transparency = 0.6
-    
-    btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(100, 160, 240)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btnStroke.Transparency = 0.3
-    end)
-    
-    btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btnStroke.Transparency = 0.6
-    end)
-    
-    return btn
-end
-
--- 創建輸入框的函數
-local function createTextBox(placeholder, order, parent, spacing)
-    local textBox = Instance.new("TextBox", parent)
-    textBox.Size = UDim2.new(0, 180, 0, 30)
-    textBox.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
-    textBox.PlaceholderText = placeholder
-    textBox.Text = ""
-    textBox.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    textBox.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
-    textBox.Font = Enum.Font.Gotham
-    textBox.TextSize = 14
-    textBox.BorderSizePixel = 0
-    textBox.ClearTextOnFocus = false
-    
-    Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 6)
-    
-    local textBoxStroke = Instance.new("UIStroke", textBox)
-    textBoxStroke.Color = Color3.fromRGB(120, 170, 255)
-    textBoxStroke.Thickness = 1
-    textBoxStroke.Transparency = 0.7
-    
-    textBox.Focused:Connect(function()
-        textBoxStroke.Transparency = 0.3
-    end)
-    
-    textBox.FocusLost:Connect(function()
-        textBoxStroke.Transparency = 0.7
-    end)
-    
-    return textBox
-end
-
--- 創建下拉選單的函數
-local function createDropdown(options, order, parent, spacing)
-    local dropdownFrame = Instance.new("Frame", parent)
-    dropdownFrame.Size = UDim2.new(0, 180, 0, 30)
-    dropdownFrame.Position = UDim2.new(0.5, -90, 0, 10 + (order - 1) * spacing)
-    dropdownFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    dropdownFrame.BorderSizePixel = 0
-    
-    Instance.new("UICorner", dropdownFrame).CornerRadius = UDim.new(0, 6)
-    
-    local dropdownStroke = Instance.new("UIStroke", dropdownFrame)
-    dropdownStroke.Color = Color3.fromRGB(120, 170, 255)
-    dropdownStroke.Thickness = 1
-    dropdownStroke.Transparency = 0.7
-    
-    local mainButton = Instance.new("TextButton", dropdownFrame)
-    mainButton.Size = UDim2.new(1, 0, 1, 0)
-    mainButton.BackgroundTransparency = 1
-    mainButton.Text = options[1]
-    mainButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    mainButton.Font = Enum.Font.Gotham
-    mainButton.TextSize = 14
-    
-    local arrow = Instance.new("TextLabel", dropdownFrame)
-    arrow.Size = UDim2.new(0, 20, 1, 0)
-    arrow.Position = UDim2.new(1, -20, 0, 0)
-    arrow.BackgroundTransparency = 1
-    arrow.Text = "▼"
-    arrow.TextColor3 = Color3.fromRGB(255, 255, 255)
-    arrow.Font = Enum.Font.Gotham
-    arrow.TextSize = 12
-    
-    local optionsFrame = Instance.new("Frame", dropdownFrame)
-    optionsFrame.Size = UDim2.new(1, 0, 0, #options * 30)
-    optionsFrame.Position = UDim2.new(0, 0, 1, 2)
-    optionsFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    optionsFrame.BorderSizePixel = 0
-    optionsFrame.Visible = false
-    optionsFrame.ZIndex = 10
-    
-    Instance.new("UICorner", optionsFrame).CornerRadius = UDim.new(0, 6)
-    
-    local optionsStroke = Instance.new("UIStroke", optionsFrame)
-    optionsStroke.Color = Color3.fromRGB(120, 170, 255)
-    optionsStroke.Thickness = 1
-    optionsStroke.Transparency = 0.7
-    
-    local selectedIndex = 1
-    local isOpen = false
-    
-    for i, option in ipairs(options) do
-        local optionButton = Instance.new("TextButton", optionsFrame)
-        optionButton.Size = UDim2.new(1, 0, 0, 30)
-        optionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
-        optionButton.BackgroundTransparency = 1
-        optionButton.Text = option
-        optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        optionButton.Font = Enum.Font.Gotham
-        optionButton.TextSize = 14
-        optionButton.ZIndex = 11
-        
-        optionButton.MouseEnter:Connect(function()
-            optionButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
-            optionButton.BackgroundTransparency = 0
-        end)
-        
-        optionButton.MouseLeave:Connect(function()
-            optionButton.BackgroundTransparency = 1
-        end)
-        
-        optionButton.MouseButton1Click:Connect(function()
-            selectedIndex = i
-            mainButton.Text = option
-            optionsFrame.Visible = false
-            isOpen = false
-            arrow.Text = "▼"
-        end)
-    end
-    
-    mainButton.MouseButton1Click:Connect(function()
-        isOpen = not isOpen
-        optionsFrame.Visible = isOpen
-        arrow.Text = isOpen and "▲" or "▼"
-    end)
-    
-    -- 返回框架和獲取選中值的函數
-    return dropdownFrame, function() return selectedIndex, options[selectedIndex] end
-end
 
 -- 創建玩家名稱輸入框
 local PlayerNameInput = createTextBox("輸入玩家名稱", 1, CarMasteryContent, 45)
@@ -452,7 +292,7 @@ local function findPlayerByName(playerName)
     return nil
 end
 
--- 修復版：計算目標位置的函數
+-- 修改版：計算目標位置的函數（確保同高度且距離50單位）
 local function calculateTargetPosition(targetPlayer)
     if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return nil
@@ -462,26 +302,29 @@ local function calculateTargetPosition(targetPlayer)
     local targetPosition = targetRootPart.Position
     local targetLookDirection = targetRootPart.CFrame.LookVector
     
-    -- 計算目標玩家面向方向前50單位的位置
-    local destinationPosition = targetPosition + (targetLookDirection * 50)
+    -- 計算目標玩家面向方向前50單位的位置，使用目標的Y坐標
+    local destinationPosition = Vector3.new(
+        targetPosition.X + (targetLookDirection.X * 50),
+        targetPosition.Y, -- 使用目標的Y坐標確保同高度
+        targetPosition.Z + (targetLookDirection.Z * 50)
+    )
     
     return destinationPosition
 end
 
--- 【關鍵修復】：移動到目標位置的函數 - 移除 AngularVelocity
+-- 修改版：移動到目標位置的函數
 local function moveToPosition(targetPosition)
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return false
     end
     
     local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
-    local currentPosition = humanoidRootPart.Position
-    local newPosition = Vector3.new(targetPosition.X, currentPosition.Y, targetPosition.Z)
     
-    -- 創建新的CFrame，保持當前的旋轉
+    -- 創建新的CFrame，使用目標位置的Y坐標確保同高度
+    local newPosition = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z)
     local newCFrame = CFrame.new(newPosition, newPosition + humanoidRootPart.CFrame.LookVector)
     
-    -- 修復：使用 pcall 來安全設置屬性，避免 AngularVelocity 錯誤
+    -- 使用 pcall 來安全設置屬性
     pcall(function()
         humanoidRootPart.CFrame = newCFrame
         humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
@@ -527,19 +370,6 @@ local function teleportToLobby()
     end
 end
 
--- 檢查角色是否正在下墜的函數
-local function isFalling()
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return false
-    end
-    
-    local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
-    local velocity = humanoidRootPart.Velocity
-    
-    -- 檢查垂直速度是否向下且速度足夠大（表示正在下墜）
-    return velocity.Y < -20 -- 如果Y軸速度小於-20，認為是在下墜
-end
-
 -- 檢查 Ragdoll 狀態的函數
 local function isInRagdoll()
     if not LocalPlayer.Character then return false end
@@ -559,77 +389,24 @@ local function isInRagdoll()
     return false
 end
 
--- 固定角色位置的函數
-local function anchorCharacter(targetPosition, duration)
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return
-    end
-    
-    local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
-    local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-    
-    -- 創建固定位置
-    local newPosition = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z)
-    local newCFrame = CFrame.new(newPosition, newPosition + humanoidRootPart.CFrame.LookVector)
-    
-    -- 創建 BodyPosition 來固定角色
-    local bodyPosition = Instance.new("BodyPosition")
-    bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyPosition.Position = newPosition
-    bodyPosition.D = 3000 -- 阻尼
-    bodyPosition.P = 10000 -- 動力
-    bodyPosition.Parent = humanoidRootPart
-    
-    -- 創建 BodyAngularVelocity 來停止旋轉
-    local bodyAngularVelocity = Instance.new("BodyAngularVelocity")
-    bodyAngularVelocity.MaxTorque = Vector3.new(4000, 4000, 4000)
-    bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-    bodyAngularVelocity.Parent = humanoidRootPart
-    
-    -- 設定角色狀態
-    if humanoid then
-        humanoid.PlatformStand = true
-    end
-    
-    print("角色已固定在位置:", newPosition, "持續時間:", duration, "秒")
-    
-    -- 在指定時間後移除固定
-    spawn(function()
-        wait(duration)
-        if bodyPosition and bodyPosition.Parent then
-            bodyPosition:Destroy()
-        end
-        if bodyAngularVelocity and bodyAngularVelocity.Parent then
-            bodyAngularVelocity:Destroy()
-        end
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
-        print("角色固定已解除")
-    end)
-end
-
--- 完全修復版：幫助模式主要執行函數
+-- 修改版：幫助模式主要執行函數
 local function executeHelperMode()
     if not isHelperMode then return false end
     
-    print("執行幫助模式移動...")
     local targetPlayer = findPlayerByName(targetPlayerName)
     if targetPlayer then
         local targetPosition = calculateTargetPosition(targetPlayer)
         if targetPosition then
             if moveToPosition(targetPosition) then
-                print("成功傳送到", targetPlayer.Name, "面前")
                 return targetPlayer.Name
             end
         end
     end
     
-    print("找不到目標玩家:", targetPlayerName)
     return nil
 end
 
--- 完全修復版：幫助模式功能
+-- 修改版：幫助模式功能
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
         -- 檢查是否有輸入玩家名稱
@@ -648,15 +425,22 @@ HelperModeButton.MouseButton1Click:Connect(function()
         HelperModeButton.Text = "停止幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         
+        -- 根據模式設置不同的間隔
+        if helperMode == "normal" then
+            HELPER_INTERVAL = 0.1 -- 被撞後不重置：每0.1秒移動
+        else
+            HELPER_INTERVAL = 3 -- 被撞後重置：每3秒移動
+        end
+        
         -- 立即執行一次移動
         local playerName = executeHelperMode()
         if playerName then
-            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (3秒後下次)"
+            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (同高度固定)"
         else
-            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (3秒後重試)"
+            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
         end
         
-        -- 創建幫助模式計時器（完全修復版）
+        -- 創建幫助模式計時器（修改版）
         helperConnection = RunService.Heartbeat:Connect(function()
             if not isHelperMode then
                 return
@@ -664,34 +448,24 @@ HelperModeButton.MouseButton1Click:Connect(function()
             
             local currentTime = tick()
             local timePassed = currentTime - lastHelperMoveTime
-            local remainingTime = math.max(0, HELPER_INTERVAL - timePassed)
             
-            -- 更新倒數顯示
-            if remainingTime > 0 then
-                local seconds = math.ceil(remainingTime)
-                if StatusLabel.Text:find("跟隨") then
-                    local playerName = StatusLabel.Text:match("跟隨 ([^%s]+)")
-                    if playerName then
-                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (" .. seconds .. "秒後下次)"
-                    end
-                elseif StatusLabel.Text:find("找不到") then
-                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (" .. seconds .. "秒後重試)"
-                end
-            else
-                -- 時間到了，執行移動
-                print("3秒到了，執行移動！當前時間:", currentTime, "上次時間:", lastHelperMoveTime, "間隔:", timePassed)
+            if timePassed >= HELPER_INTERVAL then
                 lastHelperMoveTime = currentTime
                 
                 local playerName = executeHelperMode()
                 if playerName then
-                    StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (3秒後下次)"
+                    if helperMode == "normal" then
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (同高度固定)"
+                    else
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (3秒間隔)"
+                    end
                 else
-                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName .. " (3秒後重試)"
+                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
                 end
             end
         end)
         
-        -- 如果選擇了重置模式，監聽 ragdoll 狀態和下墜狀態
+        -- 如果選擇了重置模式，監聽 ragdoll 狀態
         if helperMode == "reset" then
             ragdollConnection = RunService.Heartbeat:Connect(function()
                 if not isHelperMode then return end
@@ -722,47 +496,6 @@ HelperModeButton.MouseButton1Click:Connect(function()
                     end)
                 end
             end)
-            
-            -- 監聽下墜狀態
-            fallingConnection = RunService.Heartbeat:Connect(function()
-                if not isHelperMode then return end
-                
-                if isFalling() then
-                    if not isFallingDetected then
-                        -- 開始檢測到下墜
-                        isFallingDetected = true
-                        fallingStartTime = tick()
-                        print("檢測到下墜狀態，開始計時...")
-                        StatusLabel.Text = "狀態：檢測到下墜，等待3秒..."
-                    else
-                        -- 已經在下墜狀態，檢查是否達到3秒
-                        local fallingTime = tick() - fallingStartTime
-                        if fallingTime >= 3 then
-                            print("下墜已持續3秒，執行固定...")
-                            local targetPlayer = findPlayerByName(targetPlayerName)
-                            if targetPlayer then
-                                local targetPosition = calculateTargetPosition(targetPlayer)
-                                if targetPosition then
-                                    anchorCharacter(targetPosition, 0.5)
-                                    StatusLabel.Text = "狀態：已固定位置0.5秒"
-                                end
-                            end
-                            -- 重置下墜檢測
-                            isFallingDetected = false
-                        else
-                            -- 更新倒數顯示
-                            local remainingTime = 3 - fallingTime
-                            StatusLabel.Text = "狀態：下墜中，" .. math.ceil(remainingTime) .. "秒後固定"
-                        end
-                    end
-                else
-                    -- 沒有在下墜，重置檢測狀態
-                    if isFallingDetected then
-                        isFallingDetected = false
-                        print("下墜狀態結束")
-                    end
-                end
-            end)
         end
     else
         -- 停止幫助模式
@@ -781,13 +514,6 @@ HelperModeButton.MouseButton1Click:Connect(function()
             ragdollConnection:Disconnect()
             ragdollConnection = nil
         end
-        if fallingConnection then
-            fallingConnection:Disconnect()
-            fallingConnection = nil
-        end
-        
-        -- 重置下墜檢測狀態
-        isFallingDetected = false
     end
 end)
 
@@ -878,10 +604,6 @@ ScreenGui.AncestryChanged:Connect(function()
             ragdollConnection:Disconnect()
             ragdollConnection = nil
         end
-        if fallingConnection then
-            fallingConnection:Disconnect()
-            fallingConnection = nil
-        end
         -- 清理虛擬移動連接
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
@@ -896,6 +618,5 @@ ScreenGui.AncestryChanged:Connect(function()
         -- 重置所有狀態
         isHelperMode = false
         isAutoMoving = false
-        isFallingDetected = false
     end
 end)
