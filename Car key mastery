@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.18"
+Title.Text = "✨ 貓玲的腳本區 ✨車鑰匙精通v0.19"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -545,6 +545,26 @@ local function teleportToLobby()
     end
 end
 
+-- 檢查玩家是否在 regulararena 的函數
+local function checkPlayerInRegularArena(playerName)
+    if not playerName or playerName == "" then
+        return false
+    end
+    
+    -- 檢查 workspace.玩家名.regulararena 是否存在
+    local playerPath = Workspace:FindFirstChild(playerName)
+    if playerPath then
+        local regularArena = playerPath:FindFirstChild("regulararena")
+        if regularArena then
+            print("檢測到 " .. playerName .. " 在 regulararena")
+            return true
+        end
+    end
+    
+    print(playerName .. " 不在 regulararena 或路徑不存在")
+    return false
+end
+
 -- 檢查 Ragdoll 狀態的函數
 local function isInRagdoll()
     if not LocalPlayer.Character then return false end
@@ -598,6 +618,63 @@ local function executeHelperMode()
     end
     
     return nil
+end
+
+-- 修改版：處理重置後的傳送和檢查邏輯
+local function handleResetTeleport()
+    spawn(function()
+        -- 先傳送到 Lobby
+        if teleportToLobby() then
+            wait(0.5) -- 等待0.5秒
+            
+            local maxRetries = 10 -- 最大重試次數，避免無限循環
+            local retryCount = 0
+            
+            while retryCount < maxRetries and isHelperMode do
+                -- 檢查目標玩家是否在 regulararena
+                if checkPlayerInRegularArena(targetPlayerName) then
+                    -- 目標玩家在 regulararena，可以傳送到目標位置
+                    lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行完整移動
+                    targetXZ = nil
+                    
+                    local playerName, moveType = executeHelperMode()
+                    if playerName then
+                        StatusLabel.Text = "狀態：重置完成，跟隨 " .. playerName
+                        lastHelperMoveTime = tick() -- 重置計時器
+                        print("重置完成，成功傳送到目標位置")
+                        break -- 成功後跳出循環
+                    else
+                        StatusLabel.Text = "狀態：重置完成，找不到目標"
+                        print("重置完成，但找不到目標玩家")
+                        break -- 找不到目標玩家，跳出循環
+                    end
+                else
+                    -- 目標玩家不在 regulararena，返回 Lobby 等待
+                    retryCount = retryCount + 1
+                    print("目標玩家不在 regulararena，第 " .. retryCount .. " 次重試")
+                    StatusLabel.Text = "狀態：等待目標進入競技場 (" .. retryCount .. "/" .. maxRetries .. ")"
+                    
+                    -- 返回 Lobby
+                    if teleportToLobby() then
+                        wait(0.5) -- 等待0.5秒後再檢查
+                    else
+                        print("傳送到 Lobby 失敗")
+                        StatusLabel.Text = "狀態：傳送失敗"
+                        break
+                    end
+                end
+            end
+            
+            -- 如果達到最大重試次數
+            if retryCount >= maxRetries and isHelperMode then
+                print("達到最大重試次數，停止嘗試")
+                StatusLabel.Text = "狀態：目標長時間不在競技場，已停止"
+            end
+        else
+            print("傳送到 Lobby 失敗")
+            StatusLabel.Text = "狀態：重置失敗"
+        end
+    end)
 end
 
 -- 新版：幫助模式功能
@@ -667,25 +744,8 @@ HelperModeButton.MouseButton1Click:Connect(function()
                     -- 重置角色
                     resetCharacter()
                     
-                    -- 等待重生後傳送到 Lobby
-                    spawn(function()
-                        if teleportToLobby() then
-                            wait(0.5) -- 等待0.5秒
-                            
-                            -- 如果幫助模式仍然啟用，重置計時器並傳送到目標位置
-                            if isHelperMode then
-                                lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行完整移動
-                                targetXZ = nil
-                                local playerName, moveType = executeHelperMode()
-                                if playerName then
-                                    StatusLabel.Text = "狀態：重置完成，跟隨 " .. playerName
-                                    lastHelperMoveTime = tick() -- 重置計時器
-                                else
-                                    StatusLabel.Text = "狀態：重置完成，找不到目標"
-                                end
-                            end
-                        end
-                    end)
+                    -- 執行重置後的傳送和檢查邏輯
+                    handleResetTeleport()
                 end
             end)
         end
