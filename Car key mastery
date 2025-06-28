@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車鑰匙精通v0.18"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.18"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -361,13 +361,13 @@ local function createDropdown(options, order, parent, height)
 end
 
 -- =================================
--- 修复版：车钥匙精通分区（触控版）
+-- 修改版：車鑰匙精通分區（觸控版）
 -- =================================
 
--- 创建车钥匙精通分区按钮
-local CarMasterySection = createSectionButton("车钥匙精通", 1, SideBar)
+-- 創建車鑰匙精通分區按鈕
+local CarMasterySection = createSectionButton("車鑰匙精通", 1, SideBar)
 
--- 创建车钥匙精通内容区域
+-- 創建車鑰匙精通內容區域
 local CarMasteryContent = Instance.new("ScrollingFrame", Content)
 CarMasteryContent.Size = UDim2.new(1, -10, 1, -10)
 CarMasteryContent.Position = UDim2.new(0, 5, 0, 5)
@@ -381,7 +381,7 @@ CarMasteryContent.Visible = true
 
 styleScrollFrame(CarMasteryContent)
 
--- 分区按钮点击事件
+-- 分區按鈕點擊事件
 CarMasterySection.MouseButton1Click:Connect(function()
     for _, child in pairs(Content:GetChildren()) do
         if child:IsA("ScrollingFrame") then
@@ -391,55 +391,50 @@ CarMasterySection.MouseButton1Click:Connect(function()
     CarMasteryContent.Visible = true
 end)
 
--- 虚拟按键移动功能变量
+-- 虛擬按鍵移動功能變數
 local isAutoMoving = false
 local autoMoveConnection = nil
 local moveStartTime = 0
-local currentDirection = "W" -- "W"(前进), "S"(后退), "STOP"(停止)
-local movePhase = "moving" -- "moving"(移动中), "stopping"(停止中)
+local currentDirection = "W" -- "W"(前進), "S"(後退), "STOP"(停止)
+local movePhase = "moving" -- "moving"(移動中), "stopping"(停止中)
 local phaseStartTime = 0
 
--- 帮助模式功能变量 (修复版)
+-- 幫助模式功能變數 (修改版)
 local isHelperMode = false
 local helperConnection = nil
 local ragdollConnection = nil
 local lastHelperMoveTime = 0
-local lastPositionUpdateTime = 0 -- 新增：位置更新计时器
-local HELPER_HEIGHT_INTERVAL = 0.1 -- 高度同步间隔：0.1秒
-local HELPER_POSITION_INTERVAL = 3 -- 位置移动间隔：3秒
+local lastPositionUpdateTime = 0 -- 新增：位置更新計時器
+local HELPER_HEIGHT_INTERVAL = 0.1 -- 高度同步間隔：0.1秒
+local HELPER_POSITION_INTERVAL = 3 -- 位置移動間隔：3秒
 local targetPlayerName = ""
 local helperMode = "normal" -- "normal" 或 "reset"
-local targetXZ = nil -- 存储目标的X、Z坐标
+local targetXZ = nil -- 存儲目標的X、Z坐標
 
--- 新增：防止重复重置的变量
-local isResetting = false
-local lastRagdollTime = 0
-local RAGDOLL_COOLDOWN = 5 -- 重置冷却时间5秒
+-- 創建玩家名稱輸入框
+local PlayerNameInput = createTextBox("輸入玩家名稱", 1, CarMasteryContent, 45)
 
--- 创建玩家名称输入框
-local PlayerNameInput = createTextBox("输入玩家名称", 1, CarMasteryContent, 45)
+-- 創建模式選擇下拉選單
+local ModeDropdown, getModeSelection = createDropdown({"被撞後不重置", "被撞後重置"}, 2, CarMasteryContent, 45)
 
--- 创建模式选择下拉选单
-local ModeDropdown, getModeSelection = createDropdown({"被撞后不重置", "被撞后重置"}, 2, CarMasteryContent, 45)
+-- 創建幫助模式按鈕
+local HelperModeButton = createScrollButton("開始幫助模式", 3, CarMasteryContent, 45)
 
--- 创建帮助模式按钮
-local HelperModeButton = createScrollButton("开始帮助模式", 3, CarMasteryContent, 45)
+-- 創建虛擬按鍵移動按鈕
+local VirtualMoveButton = createScrollButton("虛擬按鍵移動", 4, CarMasteryContent, 45)
 
--- 创建虚拟按键移动按钮
-local VirtualMoveButton = createScrollButton("虚拟按键移动", 4, CarMasteryContent, 45)
-
--- 创建状态显示标签
+-- 創建狀態顯示標籤
 local StatusLabel = Instance.new("TextLabel", CarMasteryContent)
 StatusLabel.Size = UDim2.new(0, 180, 0, 25)
 StatusLabel.Position = UDim2.new(0.5, -90, 0, 230)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "状态：停止"
+StatusLabel.Text = "狀態：停止"
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 14
 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
 
--- 修复版：寻找指定名称玩家的函数
+-- 修復版：尋找指定名稱玩家的函數
 local function findPlayerByName(playerName)
     if not playerName or playerName == "" then
         return nil
@@ -452,7 +447,7 @@ local function findPlayerByName(playerName)
         end
     end
     
-    -- 部分匹配（不区分大小写）
+    -- 部分匹配（不區分大小寫）
     local lowerName = playerName:lower()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Name:lower():find(lowerName) then
@@ -463,7 +458,7 @@ local function findPlayerByName(playerName)
     return nil
 end
 
--- 新版：计算目标位置的函数（分离高度和XZ坐标）
+-- 新版：計算目標位置的函數（分離高度和XZ坐標）
 local function calculateTargetPosition(targetPlayer)
     if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return nil, nil
@@ -473,18 +468,18 @@ local function calculateTargetPosition(targetPlayer)
     local targetPosition = targetRootPart.Position
     local targetLookDirection = targetRootPart.CFrame.LookVector
     
-    -- 计算目标玩家面向方向前50单位的X、Z坐标
+    -- 計算目標玩家面向方向前50單位的X、Z坐標
     local targetXZPosition = Vector3.new(
         targetPosition.X + (targetLookDirection.X * 50),
-        0, -- Y坐标暂时设为0，后面会单独处理
+        0, -- Y坐標暫時設為0，後面會單獨處理
         targetPosition.Z + (targetLookDirection.Z * 50)
     )
     
-    -- 返回目标的Y坐标和XZ位置
+    -- 返回目標的Y坐標和XZ位置
     return targetPosition.Y, targetXZPosition
 end
 
--- 新版：移动到指定位置的函数（支持只更新高度或完整移动）
+-- 新版：移動到指定位置的函數（支持只更新高度或完整移動）
 local function moveToPosition(targetY, targetXZ, onlyHeight)
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return false
@@ -495,21 +490,21 @@ local function moveToPosition(targetY, targetXZ, onlyHeight)
     
     local newPosition
     if onlyHeight then
-        -- 只更新Y坐标（高度），保持当前的X、Z坐标
+        -- 只更新Y坐標（高度），保持當前的X、Z坐標
         newPosition = Vector3.new(currentPosition.X, targetY, currentPosition.Z)
     else
-        -- 完整移动：使用目标的XZ坐标和Y坐标
+        -- 完整移動：使用目標的XZ坐標和Y坐標
         newPosition = Vector3.new(targetXZ.X, targetY, targetXZ.Z)
     end
     
     local newCFrame = CFrame.new(newPosition, newPosition + humanoidRootPart.CFrame.LookVector)
     
-    -- 使用 pcall 来安全设置属性
+    -- 使用 pcall 來安全設置屬性
     pcall(function()
         humanoidRootPart.CFrame = newCFrame
         humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
         
-        -- 尝试设置 AngularVelocity，如果不存在就跳过
+        -- 嘗試設置 AngularVelocity，如果不存在就跳過
         if humanoidRootPart:FindFirstChild("AngularVelocity") then
             humanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
         elseif humanoidRootPart:FindFirstChild("BodyAngularVelocity") then
@@ -520,230 +515,56 @@ local function moveToPosition(targetY, targetXZ, onlyHeight)
     return true
 end
 
--- 修复版：重置角色的函数
+-- 重置角色的函數
 local function resetCharacter()
-    print("执行重置...")
-    if LocalPlayer.Character then
-        local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-        if humanoid then
-            -- 使用 pcall 来安全重置
-            pcall(function()
-                humanoid.Health = 0
-            end)
-        else
-            -- 如果找不到 Humanoid，尝试其他方法
-            pcall(function()
-                LocalPlayer.Character:Destroy()
-            end)
-        end
+    print("執行重置...")
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.Health = 0
     end
 end
 
--- 修复版：传送到 Lobby 的函数
+-- 傳送到 Lobby 的函數
 local function teleportToLobby()
-    local maxAttempts = 3 -- 最大尝试次数
-    local attempt = 0
+    wait(0.1) -- 等待角色重新載入
     
-    while attempt < maxAttempts do
-        attempt = attempt + 1
-        
-        -- 等待角色完全载入
-        local waitTime = 0
-        repeat 
-            wait(0.1)
-            waitTime = waitTime + 0.1
-        until (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) or waitTime >= 5
-        
-        if waitTime >= 5 then
-            print("等待角色载入超时，尝试 " .. attempt)
-            if attempt < maxAttempts then
-                continue
-            else
-                return false
-            end
-        end
-        
-        local lobbyTeleport = Workspace:FindFirstChild("Lobby")
-        if lobbyTeleport then
-            lobbyTeleport = lobbyTeleport:FindFirstChild("Teleport1")
-        end
-        
-        if lobbyTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            print("传送到 Lobby... (尝试 " .. attempt .. ")")
-            
-            -- 使用 pcall 来安全传送
-            local success = pcall(function()
-                LocalPlayer.Character.HumanoidRootPart.CFrame = lobbyTeleport.CFrame
-                LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-            end)
-            
-            if success then
-                wait(0.5) -- 等待传送稳定
-                return true
-            else
-                print("传送失败，尝试 " .. attempt)
-            end
-        else
-            print("找不到 Workspace.Lobby.Teleport1，尝试 " .. attempt)
-        end
-        
-        if attempt < maxAttempts then
-            wait(1) -- 等待1秒后重试
-        end
+    -- 等待角色完全載入
+    repeat wait(0.1) until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    local lobbyTeleport = Workspace:FindFirstChild("Lobby")
+    if lobbyTeleport then
+        lobbyTeleport = lobbyTeleport:FindFirstChild("Teleport1")
     end
     
-    return false
-end
-
--- 检查玩家是否在 regulararena 的函数
-local function checkPlayerInRegularArena(playerName)
-    if not playerName or playerName == "" then
+    if lobbyTeleport and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        print("傳送到 Lobby...")
+        LocalPlayer.Character.HumanoidRootPart.CFrame = lobbyTeleport.CFrame
+        return true
+    else
+        print("找不到 Workspace.Lobby.Teleport1")
         return false
     end
-    
-    -- 检查 workspace.玩家名.regulararena 是否存在
-    local playerPath = Workspace:FindFirstChild(playerName)
-    if playerPath then
-        local regularArena = playerPath:FindFirstChild("regulararena")
-        if regularArena then
-            print("检测到 " .. playerName .. " 在 regulararena")
-            return true
-        end
-    end
-    
-    print(playerName .. " 不在 regulararena 或路径不存在")
-    return false
 end
 
--- 修复版：检查 Ragdoll 状态的函数
+-- 檢查 Ragdoll 狀態的函數
 local function isInRagdoll()
     if not LocalPlayer.Character then return false end
     
     local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
     if not humanoid then return false end
     
-    -- 检查多种 ragdoll 状态
-    local ragdollStates = {
-        humanoid.PlatformStand,
-        humanoid.Sit,
-        humanoid:GetState() == Enum.HumanoidStateType.Physics,
-        humanoid:GetState() == Enum.HumanoidStateType.Ragdoll
-    }
+    -- 檢查 PlatformStand（常見的 ragdoll 指標）
+    if humanoid.PlatformStand then return true end
     
-    for _, state in pairs(ragdollStates) do
-        if state then
-            local currentTime = tick()
-            -- 检查冷却时间，避免频繁重置
-            if currentTime - lastRagdollTime >= RAGDOLL_COOLDOWN then
-                lastRagdollTime = currentTime
-                return true
-            else
-                return false -- 在冷却时间内，不触发重置
-            end
-        end
-    end
+    -- 檢查 Sit 狀態（某些遊戲用這個表示 ragdoll）
+    if humanoid.Sit then return true end
+    
+    -- 檢查 StateType 是否為 Physics（物理狀態）
+    if humanoid:GetState() == Enum.HumanoidStateType.Physics then return true end
     
     return false
 end
 
--- 修复版：处理重置后的传送和检查逻辑
-local function handleResetTeleport()
-    if isResetting then
-        print("已经在重置过程中，跳过")
-        return
-    end
-    
-    isResetting = true -- 设置重置标志
-    StatusLabel.Text = "状态：重置中，请稍候..."
-    
-    spawn(function()
-        -- 等待角色重新载入
-        local waitTime = 0
-        local maxWaitTime = 10 -- 最大等待时间10秒
-        
-        repeat 
-            wait(0.1)
-            waitTime = waitTime + 0.1
-        until (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) or waitTime >= maxWaitTime
-        
-        if waitTime >= maxWaitTime then
-            print("等待角色重新载入超时")
-            StatusLabel.Text = "状态：重置失败，角色载入超时"
-            isResetting = false
-            return
-        end
-        
-        print("角色重新载入完成")
-        
-        -- 先传送到 Lobby
-        if teleportToLobby() then
-            wait(1) -- 增加等待时间到1秒
-            
-            local maxRetries = 15 -- 增加最大重试次数
-            local retryCount = 0
-            
-            while retryCount < maxRetries and isHelperMode and isResetting do
-                retryCount = retryCount + 1
-                print("第 " .. retryCount .. " 次检查目标玩家状态")
-                
-                -- 检查目标玩家是否在 regulararena
-                if checkPlayerInRegularArena(targetPlayerName) then
-                    print("目标玩家在 regulararena，准备传送")
-                    StatusLabel.Text = "状态：目标在竞技场，传送中..."
-                    
-                    -- 等待一下确保稳定
-                    wait(0.5)
-                    
-                    -- 重置相关变量
-                    lastPositionUpdateTime = 0 -- 重置位置更新计时器，确保立即执行完整移动
-                    targetXZ = nil
-                    
-                    -- 尝试传送到目标位置
-                    local playerName, moveType = executeHelperMode()
-                    if playerName then
-                        StatusLabel.Text = "状态：重置完成，跟随 " .. playerName
-                        lastHelperMoveTime = tick() -- 重置计时器
-                        print("重置完成，成功传送到目标位置")
-                        isResetting = false -- 重置完成，清除标志
-                        return -- 成功后跳出
-                    else
-                        print("传送失败，继续重试...")
-                        StatusLabel.Text = "状态：传送失败，重试中 (" .. retryCount .. "/" .. maxRetries .. ")"
-                    end
-                else
-                    -- 目标玩家不在 regulararena，返回 Lobby 等待
-                    print("目标玩家不在 regulararena，第 " .. retryCount .. " 次重试")
-                    StatusLabel.Text = "状态：等待目标进入竞技场 (" .. retryCount .. "/" .. maxRetries .. ")"
-                    
-                    -- 确保在 Lobby
-                    if not teleportToLobby() then
-                        print("传送到 Lobby 失败")
-                        StatusLabel.Text = "状态：传送失败"
-                        break
-                    end
-                    
-                    wait(1) -- 等待1秒后再检查
-                end
-            end
-            
-            -- 如果达到最大重试次数或其他原因退出循环
-            if retryCount >= maxRetries and isHelperMode then
-                print("达到最大重试次数，停止尝试")
-                StatusLabel.Text = "状态：目标长时间不在竞技场，已停止"
-            elseif not isHelperMode then
-                print("帮助模式已停止")
-                StatusLabel.Text = "状态：已停止"
-            end
-        else
-            print("传送到 Lobby 失败")
-            StatusLabel.Text = "状态：重置失败，无法传送到Lobby"
-        end
-        
-        isResetting = false -- 清除重置标志
-    end)
-end
-
--- 新版：帮助模式主要执行函数
+-- 新版：幫助模式主要執行函數
 local function executeHelperMode()
     if not isHelperMode then return false end
     
@@ -759,18 +580,18 @@ local function executeHelperMode()
         return nil
     end
     
-    -- 检查是否需要更新XZ位置（每3秒）
+    -- 檢查是否需要更新XZ位置（每3秒）
     local shouldUpdatePosition = (currentTime - lastPositionUpdateTime) >= HELPER_POSITION_INTERVAL
     
     if shouldUpdatePosition then
-        -- 完整移动：更新XZ坐标和Y坐标
+        -- 完整移動：更新XZ坐標和Y坐標
         if moveToPosition(targetY, targetXZPosition, false) then
-            targetXZ = targetXZPosition -- 更新存储的目标XZ坐标
+            targetXZ = targetXZPosition -- 更新存儲的目標XZ坐標
             lastPositionUpdateTime = currentTime
-            return targetPlayer.Name, "完整移动"
+            return targetPlayer.Name, "完整移動"
         end
     else
-        -- 只更新高度：保持当前XZ坐标，只同步Y坐标
+        -- 只更新高度：保持當前XZ坐標，只同步Y坐標
         if moveToPosition(targetY, nil, true) then
             return targetPlayer.Name, "高度同步"
         end
@@ -779,90 +600,105 @@ local function executeHelperMode()
     return nil
 end
 
--- 新版：帮助模式功能
+-- 新版：幫助模式功能
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
-        -- 检查是否有输入玩家名称
+        -- 檢查是否有輸入玩家名稱
         if PlayerNameInput.Text == "" then
-            StatusLabel.Text = "状态：请输入玩家名称"
+            StatusLabel.Text = "狀態：請輸入玩家名稱"
             return
         end
         
-        -- 开始帮助模式
-        print("启动帮助模式")
+        -- 開始幫助模式
+        print("啟動幫助模式")
         isHelperMode = true
-        isResetting = false -- 重置状态标志
         targetPlayerName = PlayerNameInput.Text
         local _, selectedMode = getModeSelection()
-        helperMode = selectedMode == "被撞后重置" and "reset" or "normal"
+        helperMode = selectedMode == "被撞後重置" and "reset" or "normal"
         lastHelperMoveTime = tick()
-        lastPositionUpdateTime = 0 -- 重置位置更新计时器，确保立即执行一次完整移动
+        lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行一次完整移動
         targetXZ = nil
-        HelperModeButton.Text = "停止帮助模式"
+        HelperModeButton.Text = "停止幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         
-        -- 立即执行一次移动
+        -- 立即執行一次移動
         local playerName, moveType = executeHelperMode()
         if playerName then
-            StatusLabel.Text = "状态：跟随 " .. playerName .. " (" .. (moveType or "开始") .. ")"
+            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (" .. (moveType or "開始") .. ")"
         else
-            StatusLabel.Text = "状态：找不到玩家 " .. targetPlayerName
+            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
         end
         
-        -- 创建帮助模式计时器（新版）
+        -- 創建幫助模式計時器（新版）
         helperConnection = RunService.Heartbeat:Connect(function()
-            if not isHelperMode or isResetting then -- 如果正在重置则跳过
+            if not isHelperMode then
                 return
             end
             
             local currentTime = tick()
             local timePassed = currentTime - lastHelperMoveTime
             
-            -- 每0.1秒执行一次（用于高度同步和位置检查）
+            -- 每0.1秒執行一次（用於高度同步和位置檢查）
             if timePassed >= HELPER_HEIGHT_INTERVAL then
                 lastHelperMoveTime = currentTime
                 
                 local playerName, moveType = executeHelperMode()
                 if playerName then
-                    if moveType == "完整移动" then
-                        StatusLabel.Text = "状态：跟随 " .. playerName .. " (位置更新)"
+                    if moveType == "完整移動" then
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (位置更新)"
                     else
-                        StatusLabel.Text = "状态：跟随 " .. playerName .. " (高度同步)"
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (高度同步)"
                     end
                 else
-                    StatusLabel.Text = "状态：找不到玩家 " .. targetPlayerName
+                    StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
                 end
             end
         end)
         
-        -- 如果选择了重置模式，监听 ragdoll 状态
+        -- 如果選擇了重置模式，監聽 ragdoll 狀態
         if helperMode == "reset" then
             ragdollConnection = RunService.Heartbeat:Connect(function()
-                if not isHelperMode or isResetting then return end -- 如果正在重置则跳过
+                if not isHelperMode then return end
                 
                 if isInRagdoll() then
-                    print("检测到 Ragdoll 状态，执行重置...")
-                    StatusLabel.Text = "状态：检测到撞击，重置中..."
+                    print("檢測到 Ragdoll 狀態，執行重置...")
+                    StatusLabel.Text = "狀態：檢測到撞擊，重置中..."
                     
                     -- 重置角色
                     resetCharacter()
                     
-                    -- 执行重置后的传送和检查逻辑
-                    handleResetTeleport()
+                    -- 等待重生後傳送到 Lobby
+                    spawn(function()
+                        if teleportToLobby() then
+                            wait(0.5) -- 等待0.5秒
+                            
+                            -- 如果幫助模式仍然啟用，重置計時器並傳送到目標位置
+                            if isHelperMode then
+                                lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行完整移動
+                                targetXZ = nil
+                                local playerName, moveType = executeHelperMode()
+                                if playerName then
+                                    StatusLabel.Text = "狀態：重置完成，跟隨 " .. playerName
+                                    lastHelperMoveTime = tick() -- 重置計時器
+                                else
+                                    StatusLabel.Text = "狀態：重置完成，找不到目標"
+                                end
+                            end
+                        end
+                    end)
                 end
             end)
         end
     else
-        -- 停止帮助模式
-        print("停止帮助模式")
+        -- 停止幫助模式
+        print("停止幫助模式")
         isHelperMode = false
-        isResetting = false -- 清除重置标志
-        HelperModeButton.Text = "开始帮助模式"
+        HelperModeButton.Text = "開始幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
-        StatusLabel.Text = "状态：停止"
+        StatusLabel.Text = "狀態：停止"
         targetXZ = nil
         
-        -- 断开连接
+        -- 斷開連接
         if helperConnection then
             helperConnection:Disconnect()
             helperConnection = nil
@@ -874,7 +710,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- 虚拟按键移动功能
+-- 虛擬按鍵移動功能
 local function simulateKeyPress(key)
     VirtualInputManager:SendKeyEvent(true, key, false, game)
 end
@@ -883,49 +719,49 @@ local function simulateKeyRelease(key)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
--- 自动虚拟按键移动功能
+-- 自動虛擬按鍵移動功能
 VirtualMoveButton.MouseButton1Click:Connect(function()
     if not isAutoMoving then
-        -- 开始自动移动
+        -- 開始自動移動
         isAutoMoving = true
         moveStartTime = tick()
         phaseStartTime = tick()
         currentDirection = "W"
         movePhase = "moving"
-        VirtualMoveButton.Text = "停止虚拟移动"
+        VirtualMoveButton.Text = "停止虛擬移動"
         VirtualMoveButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-        StatusLabel.Text = "状态：前进中"
+        StatusLabel.Text = "狀態：前進中"
         
-        -- 开始按下前进键
+        -- 開始按下前進鍵
         simulateKeyPress(Enum.KeyCode.W)
         
-        -- 自动移动循环
+        -- 自動移動循環
         autoMoveConnection = RunService.Heartbeat:Connect(function()
             local currentTime = tick()
             local phaseElapsedTime = currentTime - phaseStartTime
             
             if movePhase == "moving" then
-                -- 移动阶段 - 持续3秒
+                -- 移動階段 - 持續3秒
                 if phaseElapsedTime >= 3 then
-                    -- 释放当前按键，进入停止阶段
+                    -- 釋放當前按鍵，進入停止階段
                     simulateKeyRelease(Enum.KeyCode[currentDirection])
                     movePhase = "stopping"
                     phaseStartTime = currentTime
-                    StatusLabel.Text = "状态：等速归零中..."
+                    StatusLabel.Text = "狀態：等速歸零中..."
                 end
             elseif movePhase == "stopping" then
-                -- 停止阶段 - 持续1秒让速度归零
+                -- 停止階段 - 持續1秒讓速度歸零
                 if phaseElapsedTime >= 1 then
-                    -- 切换方向并开始移动
+                    -- 切換方向並開始移動
                     if currentDirection == "W" then
                         currentDirection = "S"
-                        StatusLabel.Text = "状态：后退中"
+                        StatusLabel.Text = "狀態：後退中"
                     else
                         currentDirection = "W"
-                        StatusLabel.Text = "状态：前进中"
+                        StatusLabel.Text = "狀態：前進中"
                     end
                     
-                    -- 按下新的按键
+                    -- 按下新的按鍵
                     simulateKeyPress(Enum.KeyCode[currentDirection])
                     movePhase = "moving"
                     phaseStartTime = currentTime
@@ -933,26 +769,26 @@ VirtualMoveButton.MouseButton1Click:Connect(function()
             end
         end)
     else
-        -- 停止自动移动
+        -- 停止自動移動
         isAutoMoving = false
-        VirtualMoveButton.Text = "虚拟按键移动"
+        VirtualMoveButton.Text = "虛擬按鍵移動"
         VirtualMoveButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
-        StatusLabel.Text = "状态：停止"
+        StatusLabel.Text = "狀態：停止"
         
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
             autoMoveConnection = nil
         end
         
-        -- 释放当前按下的按键
+        -- 釋放當前按下的按鍵
         simulateKeyRelease(Enum.KeyCode[currentDirection])
     end
 end)
 
--- 当GUI被销毁时清理所有连接
+-- 當GUI被銷毀時清理所有連接
 ScreenGui.AncestryChanged:Connect(function()
     if not ScreenGui.Parent then
-        -- 清理帮助模式连接
+        -- 清理幫助模式連接
         if helperConnection then
             helperConnection:Disconnect()
             helperConnection = nil
@@ -961,21 +797,20 @@ ScreenGui.AncestryChanged:Connect(function()
             ragdollConnection:Disconnect()
             ragdollConnection = nil
         end
-        -- 清理虚拟移动连接
+        -- 清理虛擬移動連接
         if autoMoveConnection then
             autoMoveConnection:Disconnect()
             autoMoveConnection = nil
         end
-        -- 确保释放所有按键
+        -- 確保釋放所有按鍵
         for _, key in pairs({"W", "S"}) do
             pcall(function()
                 simulateKeyRelease(Enum.KeyCode[key])
             end)
         end
-        -- 重置所有状态
+        -- 重置所有狀態
         isHelperMode = false
         isAutoMoving = false
-        isResetting = false
         targetXZ = nil
     end
 end)
