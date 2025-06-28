@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.16"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.17"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -303,7 +303,8 @@ local function createDropdown(options, order, parent, height)
     optionsList.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
     optionsList.BorderSizePixel = 0
     optionsList.Visible = false
-    optionsList.ZIndex = 10
+    optionsList.ZIndex = 100
+    dropdown.ZIndex = 99
     
     Instance.new("UICorner", optionsList).CornerRadius = UDim.new(0, 8)
     
@@ -323,6 +324,7 @@ local function createDropdown(options, order, parent, height)
         optionBtn.Font = Enum.Font.Gotham
         optionBtn.TextSize = 13
         optionBtn.BorderSizePixel = 0
+        optionBtn.ZIndex = 101
         
         Instance.new("UICorner", optionBtn).CornerRadius = UDim.new(0, 6)
         
@@ -420,7 +422,7 @@ local VirtualMoveButton = createScrollButton("虛擬按鍵移動", 4, CarMastery
 -- 創建狀態顯示標籤
 local StatusLabel = Instance.new("TextLabel", CarMasteryContent)
 StatusLabel.Size = UDim2.new(0, 180, 0, 25)
-StatusLabel.Position = UDim2.new(0.5, -90, 0, 200)
+StatusLabel.Position = UDim2.new(0.5, -90, 0, 230)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "狀態：停止"
 StatusLabel.Font = Enum.Font.Gotham
