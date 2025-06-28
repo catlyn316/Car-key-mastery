@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.15"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.16"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -197,6 +197,166 @@ local function styleScrollFrame(scrollFrame)
     Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 8)
 end
 
+-- 創建滾動按鈕的函數
+local function createScrollButton(text, order, parent, height)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0, 180, 0, height or 40)
+    btn.Position = UDim2.new(0.5, -90, 0, (order - 1) * (height + 10 or 50))
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.BorderSizePixel = 0
+    
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Color = Color3.fromRGB(100, 180, 255)
+    btnStroke.Thickness = 1
+    btnStroke.Transparency = 0.5
+    
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(100, 160, 240)
+        btnStroke.Transparency = 0.2
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
+        btnStroke.Transparency = 0.5
+    end)
+    
+    return btn
+end
+
+-- 創建文字輸入框的函數
+local function createTextBox(placeholder, order, parent, height)
+    local textBox = Instance.new("TextBox", parent)
+    textBox.Size = UDim2.new(0, 180, 0, height or 40)
+    textBox.Position = UDim2.new(0.5, -90, 0, (order - 1) * (height + 10 or 50))
+    textBox.PlaceholderText = placeholder
+    textBox.Text = ""
+    textBox.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 14
+    textBox.BorderSizePixel = 0
+    textBox.ClearTextOnFocus = false
+    
+    Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 8)
+    
+    local textBoxStroke = Instance.new("UIStroke", textBox)
+    textBoxStroke.Color = Color3.fromRGB(100, 150, 255)
+    textBoxStroke.Thickness = 1
+    textBoxStroke.Transparency = 0.7
+    
+    textBox.Focused:Connect(function()
+        textBoxStroke.Transparency = 0.3
+    end)
+    
+    textBox.FocusLost:Connect(function()
+        textBoxStroke.Transparency = 0.7
+    end)
+    
+    return textBox
+end
+
+-- 創建下拉選單的函數
+local function createDropdown(options, order, parent, height)
+    local dropdown = Instance.new("TextButton", parent)
+    dropdown.Size = UDim2.new(0, 180, 0, height or 40)
+    dropdown.Position = UDim2.new(0.5, -90, 0, (order - 1) * (height + 10 or 50))
+    dropdown.Text = options[1] or "選擇選項"
+    dropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+    dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdown.Font = Enum.Font.Gotham
+    dropdown.TextSize = 14
+    dropdown.BorderSizePixel = 0
+    
+    Instance.new("UICorner", dropdown).CornerRadius = UDim.new(0, 8)
+    
+    local dropdownStroke = Instance.new("UIStroke", dropdown)
+    dropdownStroke.Color = Color3.fromRGB(100, 150, 255)
+    dropdownStroke.Thickness = 1
+    dropdownStroke.Transparency = 0.7
+    
+    local selectedIndex = 1
+    local isOpen = false
+    
+    -- 創建下拉箭頭
+    local arrow = Instance.new("TextLabel", dropdown)
+    arrow.Size = UDim2.new(0, 20, 1, 0)
+    arrow.Position = UDim2.new(1, -25, 0, 0)
+    arrow.BackgroundTransparency = 1
+    arrow.Text = "▼"
+    arrow.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrow.Font = Enum.Font.Gotham
+    arrow.TextSize = 12
+    arrow.TextXAlignment = Enum.TextXAlignment.Center
+    arrow.TextYAlignment = Enum.TextYAlignment.Center
+    
+    -- 創建選項列表容器
+    local optionsList = Instance.new("Frame", dropdown)
+    optionsList.Size = UDim2.new(1, 0, 0, #options * 35)
+    optionsList.Position = UDim2.new(0, 0, 1, 5)
+    optionsList.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+    optionsList.BorderSizePixel = 0
+    optionsList.Visible = false
+    optionsList.ZIndex = 10
+    
+    Instance.new("UICorner", optionsList).CornerRadius = UDim.new(0, 8)
+    
+    local optionsStroke = Instance.new("UIStroke", optionsList)
+    optionsStroke.Color = Color3.fromRGB(100, 150, 255)
+    optionsStroke.Thickness = 1
+    optionsStroke.Transparency = 0.5
+    
+    -- 創建選項按鈕
+    for i, option in ipairs(options) do
+        local optionBtn = Instance.new("TextButton", optionsList)
+        optionBtn.Size = UDim2.new(1, -4, 0, 30)
+        optionBtn.Position = UDim2.new(0, 2, 0, (i - 1) * 35 + 2)
+        optionBtn.Text = option
+        optionBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        optionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optionBtn.Font = Enum.Font.Gotham
+        optionBtn.TextSize = 13
+        optionBtn.BorderSizePixel = 0
+        
+        Instance.new("UICorner", optionBtn).CornerRadius = UDim.new(0, 6)
+        
+        optionBtn.MouseEnter:Connect(function()
+            optionBtn.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
+        end)
+        
+        optionBtn.MouseLeave:Connect(function()
+            optionBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+        end)
+        
+        optionBtn.MouseButton1Click:Connect(function()
+            selectedIndex = i
+            dropdown.Text = option
+            optionsList.Visible = false
+            isOpen = false
+            arrow.Text = "▼"
+        end)
+    end
+    
+    -- 主按鈕點擊事件
+    dropdown.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        optionsList.Visible = isOpen
+        arrow.Text = isOpen and "▲" or "▼"
+    end)
+    
+    -- 返回下拉選單和獲取選擇的函數
+    local function getSelection()
+        return selectedIndex, options[selectedIndex]
+    end
+    
+    return dropdown, getSelection
+end
 -- =================================
 -- 修改版：車鑰匙精通分區（觸控版）
 -- =================================
