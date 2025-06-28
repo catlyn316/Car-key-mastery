@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.17"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.18"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -359,6 +359,7 @@ local function createDropdown(options, order, parent, height)
     
     return dropdown, getSelection
 end
+
 -- =================================
 -- 修改版：車鑰匙精通分區（觸控版）
 -- =================================
@@ -403,9 +404,12 @@ local isHelperMode = false
 local helperConnection = nil
 local ragdollConnection = nil
 local lastHelperMoveTime = 0
-local HELPER_INTERVAL = 0.1 -- 修改為0.1秒間隔
+local lastPositionUpdateTime = 0 -- 新增：位置更新計時器
+local HELPER_HEIGHT_INTERVAL = 0.1 -- 高度同步間隔：0.1秒
+local HELPER_POSITION_INTERVAL = 3 -- 位置移動間隔：3秒
 local targetPlayerName = ""
 local helperMode = "normal" -- "normal" 或 "reset"
+local targetXZ = nil -- 存儲目標的X、Z坐標
 
 -- 創建玩家名稱輸入框
 local PlayerNameInput = createTextBox("輸入玩家名稱", 1, CarMasteryContent, 45)
@@ -454,36 +458,45 @@ local function findPlayerByName(playerName)
     return nil
 end
 
--- 修改版：計算目標位置的函數（確保同高度且距離50單位）
+-- 新版：計算目標位置的函數（分離高度和XZ坐標）
 local function calculateTargetPosition(targetPlayer)
     if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return nil
+        return nil, nil
     end
     
     local targetRootPart = targetPlayer.Character.HumanoidRootPart
     local targetPosition = targetRootPart.Position
     local targetLookDirection = targetRootPart.CFrame.LookVector
     
-    -- 計算目標玩家面向方向前50單位的位置，使用目標的Y坐標
-    local destinationPosition = Vector3.new(
+    -- 計算目標玩家面向方向前50單位的X、Z坐標
+    local targetXZPosition = Vector3.new(
         targetPosition.X + (targetLookDirection.X * 50),
-        targetPosition.Y, -- 使用目標的Y坐標確保同高度
+        0, -- Y坐標暫時設為0，後面會單獨處理
         targetPosition.Z + (targetLookDirection.Z * 50)
     )
     
-    return destinationPosition
+    -- 返回目標的Y坐標和XZ位置
+    return targetPosition.Y, targetXZPosition
 end
 
--- 修改版：移動到目標位置的函數
-local function moveToPosition(targetPosition)
+-- 新版：移動到指定位置的函數（支持只更新高度或完整移動）
+local function moveToPosition(targetY, targetXZ, onlyHeight)
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return false
     end
     
     local humanoidRootPart = LocalPlayer.Character.HumanoidRootPart
+    local currentPosition = humanoidRootPart.Position
     
-    -- 創建新的CFrame，使用目標位置的Y坐標確保同高度
-    local newPosition = Vector3.new(targetPosition.X, targetPosition.Y, targetPosition.Z)
+    local newPosition
+    if onlyHeight then
+        -- 只更新Y坐標（高度），保持當前的X、Z坐標
+        newPosition = Vector3.new(currentPosition.X, targetY, currentPosition.Z)
+    else
+        -- 完整移動：使用目標的XZ坐標和Y坐標
+        newPosition = Vector3.new(targetXZ.X, targetY, targetXZ.Z)
+    end
+    
     local newCFrame = CFrame.new(newPosition, newPosition + humanoidRootPart.CFrame.LookVector)
     
     -- 使用 pcall 來安全設置屬性
@@ -551,24 +564,43 @@ local function isInRagdoll()
     return false
 end
 
--- 修改版：幫助模式主要執行函數
+-- 新版：幫助模式主要執行函數
 local function executeHelperMode()
     if not isHelperMode then return false end
     
+    local currentTime = tick()
     local targetPlayer = findPlayerByName(targetPlayerName)
-    if targetPlayer then
-        local targetPosition = calculateTargetPosition(targetPlayer)
-        if targetPosition then
-            if moveToPosition(targetPosition) then
-                return targetPlayer.Name
-            end
+    
+    if not targetPlayer then
+        return nil
+    end
+    
+    local targetY, targetXZPosition = calculateTargetPosition(targetPlayer)
+    if not targetY or not targetXZPosition then
+        return nil
+    end
+    
+    -- 檢查是否需要更新XZ位置（每3秒）
+    local shouldUpdatePosition = (currentTime - lastPositionUpdateTime) >= HELPER_POSITION_INTERVAL
+    
+    if shouldUpdatePosition then
+        -- 完整移動：更新XZ坐標和Y坐標
+        if moveToPosition(targetY, targetXZPosition, false) then
+            targetXZ = targetXZPosition -- 更新存儲的目標XZ坐標
+            lastPositionUpdateTime = currentTime
+            return targetPlayer.Name, "完整移動"
+        end
+    else
+        -- 只更新高度：保持當前XZ坐標，只同步Y坐標
+        if moveToPosition(targetY, nil, true) then
+            return targetPlayer.Name, "高度同步"
         end
     end
     
     return nil
 end
 
--- 修改版：幫助模式功能
+-- 新版：幫助模式功能
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
         -- 檢查是否有輸入玩家名稱
@@ -584,25 +616,20 @@ HelperModeButton.MouseButton1Click:Connect(function()
         local _, selectedMode = getModeSelection()
         helperMode = selectedMode == "被撞後重置" and "reset" or "normal"
         lastHelperMoveTime = tick()
+        lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行一次完整移動
+        targetXZ = nil
         HelperModeButton.Text = "停止幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
         
-        -- 根據模式設置不同的間隔
-        if helperMode == "normal" then
-            HELPER_INTERVAL = 0.1 -- 被撞後不重置：每0.1秒移動
-        else
-            HELPER_INTERVAL = 3 -- 被撞後重置：每3秒移動
-        end
-        
         -- 立即執行一次移動
-        local playerName = executeHelperMode()
+        local playerName, moveType = executeHelperMode()
         if playerName then
-            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (同高度固定)"
+            StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (" .. (moveType or "開始") .. ")"
         else
             StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
         end
         
-        -- 創建幫助模式計時器（修改版）
+        -- 創建幫助模式計時器（新版）
         helperConnection = RunService.Heartbeat:Connect(function()
             if not isHelperMode then
                 return
@@ -611,15 +638,16 @@ HelperModeButton.MouseButton1Click:Connect(function()
             local currentTime = tick()
             local timePassed = currentTime - lastHelperMoveTime
             
-            if timePassed >= HELPER_INTERVAL then
+            -- 每0.1秒執行一次（用於高度同步和位置檢查）
+            if timePassed >= HELPER_HEIGHT_INTERVAL then
                 lastHelperMoveTime = currentTime
                 
-                local playerName = executeHelperMode()
+                local playerName, moveType = executeHelperMode()
                 if playerName then
-                    if helperMode == "normal" then
-                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (同高度固定)"
+                    if moveType == "完整移動" then
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (位置更新)"
                     else
-                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (3秒間隔)"
+                        StatusLabel.Text = "狀態：跟隨 " .. playerName .. " (高度同步)"
                     end
                 else
                     StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
@@ -644,9 +672,11 @@ HelperModeButton.MouseButton1Click:Connect(function()
                         if teleportToLobby() then
                             wait(0.5) -- 等待0.5秒
                             
-                            -- 如果幫助模式仍然啟用，傳送到目標位置
+                            -- 如果幫助模式仍然啟用，重置計時器並傳送到目標位置
                             if isHelperMode then
-                                local playerName = executeHelperMode()
+                                lastPositionUpdateTime = 0 -- 重置位置更新計時器，確保立即執行完整移動
+                                targetXZ = nil
+                                local playerName, moveType = executeHelperMode()
                                 if playerName then
                                     StatusLabel.Text = "狀態：重置完成，跟隨 " .. playerName
                                     lastHelperMoveTime = tick() -- 重置計時器
@@ -666,6 +696,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
         HelperModeButton.Text = "開始幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(80, 140, 220)
         StatusLabel.Text = "狀態：停止"
+        targetXZ = nil
         
         -- 斷開連接
         if helperConnection then
@@ -780,5 +811,6 @@ ScreenGui.AncestryChanged:Connect(function()
         -- 重置所有狀態
         isHelperMode = false
         isAutoMoving = false
+        targetXZ = nil
     end
 end)
