@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.19"
+Title.Text = "✨ 貓玲的腳本區 ✨車鑰匙v0.20"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -614,11 +614,13 @@ HelperModeButton.MouseButton1Click:Connect(function()
                 end
                 
                 pcall(function()
-                    -- 傳送到 Lobby.Teleport1
-                    local teleport1 = Workspace.Lobby:FindFirstChild("Teleport1")
-                    if teleport1 and isHelperMode then
-                        humanoidRootPart.CFrame = teleport1.CFrame
-                        task.wait(0.3)
+                    -- 只有在重置模式下才會傳送到 Lobby.Teleport1
+                    if helperMode == "reset" then
+                        local teleport1 = Workspace.Lobby:FindFirstChild("Teleport1")
+                        if teleport1 and isHelperMode then
+                            humanoidRootPart.CFrame = teleport1.CFrame
+                            task.wait(0.3)
+                        end
                     end
                     
                     -- 持續跟隨目標玩家
@@ -634,6 +636,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
                                 task.wait(0.5) -- 等待0.5秒
                                 
                                 if helperMode == "reset" then
+                                    -- 重置模式：執行完整重置流程
                                     -- 安全傳送到指定坐標
                                     pcall(function()
                                         if humanoidRootPart and humanoidRootPart.Parent then
@@ -687,7 +690,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
                                            newCharacter and newCharacter:FindFirstChild("HumanoidRootPart") then
                                             local targetRoot = targetPlayer.Character.HumanoidRootPart
                                             local targetLookDirection = targetRoot.CFrame.LookVector
-                                            local newPos = targetRoot.Position + (targetLookDirection * 50) + Vector3.new(0, 2, 0)
+                                            local newPos = targetRoot.Position + (targetLookDirection * 5) + Vector3.new(0, 2, 0)
                                             newCharacter.HumanoidRootPart.CFrame = CFrame.new(newPos, newPos + targetLookDirection)
                                         end
                                     end)
@@ -695,7 +698,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
                                     task.wait(0.3)
                                     break
                                 else
-                                    -- 不重置模式 - 繼續跟隨
+                                    -- 不重置模式：被撞後不做任何特殊處理，直接跳出循環繼續正常跟隨
                                     break
                                 end
                             end
