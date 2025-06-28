@@ -40,7 +40,7 @@ local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, -80, 0, 50)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "✨ 貓玲的腳本區 ✨車v0.15"
+Title.Text = "✨ 貓玲的腳本區 ✨車v0.16"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -629,6 +629,60 @@ local function executeHelperMode()
     return nil
 end
 
+-- 全局變量聲明（確保這些變量在腳本開頭聲明）
+local isFallingDetected = false
+local fallingStartTime = 0
+local FALLING_THRESHOLD = -50 -- 下墜速度閾值
+local FALLING_DURATION = 3 -- 下墜持續時間閾值
+
+-- 改進的下墜檢測函數
+local function isFalling()
+    local player = game.Players.LocalPlayer
+    if not player or not player.Character then return false end
+    
+    local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return false end
+    
+    -- 檢查Y軸速度是否小於閾值（向下墜落）
+    local velocity = humanoidRootPart.Velocity
+    return velocity.Y < FALLING_THRESHOLD
+end
+
+-- 改進的固定角色函數
+local function anchorCharacter(position, duration)
+    local player = game.Players.LocalPlayer
+    if not player or not player.Character then return end
+    
+    local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- 創建固定點
+    local anchor = Instance.new("Part")
+    anchor.Name = "TempAnchor"
+    anchor.Anchored = true
+    anchor.CanCollide = false
+    anchor.Transparency = 1
+    anchor.Size = Vector3.new(1, 1, 1)
+    anchor.Position = position
+    anchor.Parent = workspace
+    
+    -- 創建連接
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = humanoidRootPart
+    weld.Part1 = anchor
+    weld.Parent = humanoidRootPart
+    
+    print("已固定角色到位置:", position, "持續時間:", duration, "秒")
+    
+    -- 定時移除固定
+    spawn(function()
+        wait(duration)
+        if weld then weld:Destroy() end
+        if anchor then anchor:Destroy() end
+        print("固定結束")
+    end)
+end
+
 -- 完全修復版：幫助模式功能
 HelperModeButton.MouseButton1Click:Connect(function()
     if not isHelperMode then
@@ -647,6 +701,10 @@ HelperModeButton.MouseButton1Click:Connect(function()
         lastHelperMoveTime = tick()
         HelperModeButton.Text = "停止幫助模式"
         HelperModeButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        
+        -- 重置下墜檢測狀態
+        isFallingDetected = false
+        fallingStartTime = 0
         
         -- 立即執行一次移動
         local playerName = executeHelperMode()
@@ -723,11 +781,13 @@ HelperModeButton.MouseButton1Click:Connect(function()
                 end
             end)
             
-            -- 監聽下墜狀態
+            -- 修復的下墜檢測連接
             fallingConnection = RunService.Heartbeat:Connect(function()
                 if not isHelperMode then return end
                 
-                if isFalling() then
+                local falling = isFalling()
+                
+                if falling then
                     if not isFallingDetected then
                         -- 開始檢測到下墜
                         isFallingDetected = true
@@ -737,21 +797,29 @@ HelperModeButton.MouseButton1Click:Connect(function()
                     else
                         -- 已經在下墜狀態，檢查是否達到3秒
                         local fallingTime = tick() - fallingStartTime
-                        if fallingTime >= 3 then
+                        if fallingTime >= FALLING_DURATION then
                             print("下墜已持續3秒，執行固定...")
                             local targetPlayer = findPlayerByName(targetPlayerName)
-                            if targetPlayer then
+                            if targetPlayer and targetPlayer.Character then
                                 local targetPosition = calculateTargetPosition(targetPlayer)
                                 if targetPosition then
                                     anchorCharacter(targetPosition, 0.5)
                                     StatusLabel.Text = "狀態：已固定位置0.5秒"
+                                    print("成功固定到位置:", targetPosition)
+                                else
+                                    print("無法計算目標位置")
+                                    StatusLabel.Text = "狀態：無法計算目標位置"
                                 end
+                            else
+                                print("找不到目標玩家")
+                                StatusLabel.Text = "狀態：找不到目標玩家"
                             end
                             -- 重置下墜檢測
                             isFallingDetected = false
+                            fallingStartTime = 0
                         else
                             -- 更新倒數顯示
-                            local remainingTime = 3 - fallingTime
+                            local remainingTime = FALLING_DURATION - fallingTime
                             StatusLabel.Text = "狀態：下墜中，" .. math.ceil(remainingTime) .. "秒後固定"
                         end
                     end
@@ -759,7 +827,15 @@ HelperModeButton.MouseButton1Click:Connect(function()
                     -- 沒有在下墜，重置檢測狀態
                     if isFallingDetected then
                         isFallingDetected = false
+                        fallingStartTime = 0
                         print("下墜狀態結束")
+                        -- 恢復正常跟隨狀態顯示
+                        local targetPlayer = findPlayerByName(targetPlayerName)
+                        if targetPlayer then
+                            StatusLabel.Text = "狀態：跟隨 " .. targetPlayerName
+                        else
+                            StatusLabel.Text = "狀態：找不到玩家 " .. targetPlayerName
+                        end
                     end
                 end
             end)
@@ -788,6 +864,7 @@ HelperModeButton.MouseButton1Click:Connect(function()
         
         -- 重置下墜檢測狀態
         isFallingDetected = false
+        fallingStartTime = 0
     end
 end)
 
