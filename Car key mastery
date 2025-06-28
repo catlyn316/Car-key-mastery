@@ -232,7 +232,9 @@ end)
 local isAutoMoving = false
 local autoMoveConnection = nil
 local moveStartTime = 0
-local currentDirection = "W" -- "W", "A", "S", "D"
+local currentDirection = "W" -- "W"(前進), "S"(後退), "STOP"(停止)
+local movePhase = "moving" -- "moving"(移動中), "stopping"(停止中)
+local phaseStartTime = 0
 
 -- 修正按鈕創建函數
 local function createScrollButton(text, order, parent, spacing)
@@ -344,41 +346,47 @@ VirtualMoveButton.MouseButton1Click:Connect(function()
         -- 開始自動移動
         isAutoMoving = true
         moveStartTime = tick()
+        phaseStartTime = tick()
         currentDirection = "W"
+        movePhase = "moving"
         VirtualMoveButton.Text = "停止虛擬移動"
         VirtualMoveButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-        StatusLabel.Text = "狀態：自動移動中"
+        StatusLabel.Text = "狀態：前進中"
         
-        -- 開始按下第一個按鍵
-        simulateKeyPress(Enum.KeyCode[currentDirection])
+        -- 開始按下前進鍵
+        simulateKeyPress(Enum.KeyCode.W)
         
         -- 自動移動循環
         autoMoveConnection = RunService.Heartbeat:Connect(function()
             local currentTime = tick()
-            local elapsedTime = currentTime - moveStartTime
+            local phaseElapsedTime = currentTime - phaseStartTime
             
-            -- 每2秒切換方向
-            if elapsedTime >= 2 then
-                -- 釋放當前按鍵
-                simulateKeyRelease(Enum.KeyCode[currentDirection])
-                
-                -- 切換到下一個方向
-                if currentDirection == "W" then
-                    currentDirection = "S"
-                elseif currentDirection == "S" then
-                    currentDirection = "A"
-                elseif currentDirection == "A" then
-                    currentDirection = "D"
-                else
-                    currentDirection = "W"
+            if movePhase == "moving" then
+                -- 移動階段 - 持續3秒
+                if phaseElapsedTime >= 3 then
+                    -- 釋放當前按鍵，進入停止階段
+                    simulateKeyRelease(Enum.KeyCode[currentDirection])
+                    movePhase = "stopping"
+                    phaseStartTime = currentTime
+                    StatusLabel.Text = "狀態：等速歸零中..."
                 end
-                
-                -- 按下新的按鍵
-                simulateKeyPress(Enum.KeyCode[currentDirection])
-                
-                -- 重置計時器
-                moveStartTime = currentTime
-                StatusLabel.Text = "狀態：移動方向 " .. currentDirection
+            elseif movePhase == "stopping" then
+                -- 停止階段 - 持續1秒讓速度歸零
+                if phaseElapsedTime >= 1 then
+                    -- 切換方向並開始移動
+                    if currentDirection == "W" then
+                        currentDirection = "S"
+                        StatusLabel.Text = "狀態：後退中"
+                    else
+                        currentDirection = "W"
+                        StatusLabel.Text = "狀態：前進中"
+                    end
+                    
+                    -- 按下新的按鍵
+                    simulateKeyPress(Enum.KeyCode[currentDirection])
+                    movePhase = "moving"
+                    phaseStartTime = currentTime
+                end
             end
         end)
     else
@@ -408,7 +416,7 @@ ScreenGui.AncestryChanged:Connect(function()
             autoMoveConnection:Disconnect()
         end
         -- 確保釋放所有按鍵
-        for _, key in pairs({"W", "A", "S", "D"}) do
+        for _, key in pairs({"W", "S"}) do
             simulateKeyRelease(Enum.KeyCode[key])
         end
     end
